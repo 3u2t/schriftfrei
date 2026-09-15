@@ -95,6 +95,7 @@ export default function LandingPage() {
 
       <footer className="mx-auto max-w-5xl px-2 pb-6 pt-10 text-center text-xs text-slate-400">
         Schriftfrei – die kostenlose Handschrift-App. Alle Daten bleiben lokal auf deinem Gerät.
+        <span className="mt-1 block">Hinweis: Diese Seite zählt Besuche (IP, Browser, grobe Region) für einfache Statistiken – keine Cookies, kein Fingerprinting, keine Werbung.</span>
       </footer>
     </div>
   );

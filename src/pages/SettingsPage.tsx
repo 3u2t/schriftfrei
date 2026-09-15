@@ -143,6 +143,7 @@ export default function SettingsPage() {
           <li>Speicherung ausschließlich lokal im Browser (IndexedDB).</li>
           <li>Keine Registrierung, keine Cloud, keine Übertragung von Handschriftdaten.</li>
           <li>Exporte (PNG/JPG/SVG/PDF/GoodNotes) werden lokal auf deinem Gerät erzeugt.</li>
+          <li>Besuchs-Zählung: IP, Browser und grobe Region für einfache Statistiken – keine Cookies, kein Fingerprinting.</li>
         </ul>
       </Card>
 

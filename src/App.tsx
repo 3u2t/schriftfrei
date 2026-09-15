@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import Layout from './components/Layout';
+import SiteBeacon from './components/SiteBeacon';
 import { AppProvider } from './state/AppContext';
 import { currentRoute, type RouteName } from './utils/router';
 import LandingPage from './pages/LandingPage';
@@ -38,6 +39,7 @@ export default function App() {
 
   return (
     <AppProvider>
+      <SiteBeacon />
       <Layout>
         {route === 'home' && <LandingPage />}
         {route === 'onboarding' && <OnboardingPage />}
