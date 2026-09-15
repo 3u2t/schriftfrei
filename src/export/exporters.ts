@@ -1,5 +1,6 @@
 import { jsPDF } from 'jspdf';
 import type { PageFormat } from '../engine/types';
+import { buildPdf, dataUrlToJpeg, jpegDims, svgToPdfPage } from './vectorPdf';
 
 export interface RasterSize {
   w: number;
@@ -128,21 +129,68 @@ export async function exportPagesPdf(svgs: string[], opts: PdfOptions): Promise<
 }
 
 
-export async function exportForGoodNotes(
-  svgs: string[],
-  title: string,
-  opts: { scale: number; size: RasterSize; paperColor: string; format: PageFormat },
-): Promise<void> {
-  const safe = title.trim().toLowerCase().replace(/[^\wäöüÄÖÜß-]+/g, '-').replace(/-+/g, '-').slice(0, 60) || 'handschrift';
-  await exportPagesPdf(svgs, {
-    filename: `goodnotes-${safe}.pdf`,
-    title: `${title} (GoodNotes)`,
-    transparent: false,
-    scale: opts.scale,
-    size: opts.size,
-    paperColor: opts.paperColor,
-    format: opts.format,
+function loadImageEl(src: string): Promise<HTMLImageElement> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => resolve(img);
+    img.onerror = (e) => reject(e);
+    img.src = src;
   });
+}
+
+interface JpegImage {
+  jpeg: Uint8Array;
+  w: number;
+  h: number;
+}
+
+/** Data-URL (JPEG direkt, PNG via Canvas) → JPEG-Bytes für den Vektor-PDF-Writer. */
+async function imageHrefToJpeg(href: string): Promise<JpegImage | null> {
+  const parsed = dataUrlToJpeg(href);
+  if (!parsed) return null;
+  if (parsed.mime === 'image/jpeg') {
+    const dims = jpegDims(parsed.jpeg);
+    return dims ? { jpeg: parsed.jpeg, w: dims.w, h: dims.h } : null;
+  }
+  try {
+    const img = await loadImageEl(href);
+    const w = img.naturalWidth;
+    const h = img.naturalHeight;
+    if (!w || !h) return null;
+    const c = document.createElement('canvas');
+    c.width = w;
+    c.height = h;
+    const ctx = c.getContext('2d');
+    if (!ctx) return null;
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, w, h);
+    ctx.drawImage(img, 0, 0);
+    const back = dataUrlToJpeg(c.toDataURL('image/jpeg', 0.92));
+    if (!back) return null;
+    return { jpeg: back.jpeg, w, h };
+  } catch {
+    return null;
+  }
+}
+
+export async function exportForGoodNotes(svgs: string[], title: string): Promise<void> {
+  if (svgs.length === 0) throw new Error('Kein Inhalt zum Exportieren.');
+  // Eingebettete Bilder (Custom-Papier) einmalig auf JPEG normalisieren.
+  const hrefs = new Set<string>();
+  const re = /<image[^>]+href="([^"]+)"/g;
+  for (const s of svgs) {
+    re.lastIndex = 0;
+    let m: RegExpExecArray | null;
+    while ((m = re.exec(s)) !== null) hrefs.add(m[1]);
+  }
+  const cache = new Map<string, JpegImage | null>();
+  for (const href of hrefs) cache.set(href, await imageHrefToJpeg(href));
+  // Vektor-PDF: Handschrift bleibt echte Kurve (scharf, kleine Datei,
+  // Objekte in PDF-Apps auswählbar) statt gerastertem Bild.
+  const pages = svgs.map((s) => svgToPdfPage(s, (href) => cache.get(href) ?? null));
+  const bytes = buildPdf(pages, { title: `${title} (GoodNotes)`, creator: 'Schriftfrei (lokal)' });
+  const safe = title.trim().toLowerCase().replace(/[^\wäöüÄÖÜß-]+/g, '-').replace(/-+/g, '-').slice(0, 60) || 'handschrift';
+  downloadBlob(new Blob([new Uint8Array(bytes)], { type: 'application/pdf' }), `goodnotes-${safe}.pdf`);
 }
 
 export function stampFilename(title: string): string {

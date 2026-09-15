@@ -499,11 +499,11 @@ export default function EditorPage() {
                 {busy === 'pdf' ? '…' : `PDF (${total} ${total === 1 ? 'Seite' : 'Seiten'})`}
               </Button>
             </div>
-            <Button disabled={busy !== null} onClick={() => void runExport('goodnotes', async () => { await exportForGoodNotes(allSvgs(), title, { scale: rasterOpts(quality).scale, size: dims, paperColor: settings.paperTint, format: settings.pageFormat }); })} className="mt-2 w-full py-3.5">
-              {busy === 'goodnotes' ? 'Wird erstellt …' : '📓 Für GoodNotes exportieren (PDF)'}
+            <Button disabled={busy !== null} onClick={() => void runExport('goodnotes', async () => { await exportForGoodNotes(allSvgs(), title); })} className="mt-2 w-full py-3.5">
+              {busy === 'goodnotes' ? 'Wird erstellt …' : '📓 Für GoodNotes exportieren (Vektor-PDF)'}
             </Button>
             <p className="mt-2 text-xs text-slate-400">
-              GoodNotes: Datei danach per „Freigeben → In GoodNotes öffnen" importieren – sie erscheint als beschreibbare Notizbuch-Seiten.
+              Vektor-PDF: bleibt beim Zoomen scharf, kleine Datei. Per „Freigeben → In GoodNotes öffnen" importieren – erscheint als Notizbuch-Seiten, denen du in GoodNotes Neues hinzufügen kannst. Hinweis: Importiertes bleibt Hintergrund – zum Radieren einzelner Striche nutze GoodNotes-eigene Stifte bzw. zum echten Bearbeiten die Schrift (.otf) als Textfeld.
             </p>
             {exportError && <p className="mt-2 rounded-xl bg-red-50 px-3.5 py-2.5 text-sm text-red-700 dark:bg-red-950 dark:text-red-200">{exportError}</p>}
             <Button variant="ghost" onClick={() => setShowExport(false)} className="mt-2 w-full">Schließen</Button>
