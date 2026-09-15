@@ -1,0 +1,67 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+:root {
+  color-scheme: light dark;
+}
+
+html, body, #root {
+  min-height: 100%;
+}
+
+body {
+  font-family: ui-sans-serif, system-ui, -apple-system, "SF Pro Text", Inter, "Segoe UI", Roboto, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  overscroll-behavior-y: none;
+}
+
+.ink-canvas {
+  touch-action: none;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+  cursor: crosshair;
+}
+
+.no-select, .no-select * {
+  -webkit-user-select: none !important;
+  user-select: none !important;
+  -webkit-touch-callout: none !important;
+}
+
+@keyframes fade-up {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.anim-fade-up { animation: fade-up 0.45s ease both; }
+.anim-fade-up-1 { animation: fade-up 0.45s 0.06s ease both; }
+.anim-fade-up-2 { animation: fade-up 0.45s 0.12s ease both; }
+
+@media (prefers-reduced-motion: reduce) {
+  .anim-fade-up, .anim-fade-up-1, .anim-fade-up-2 { animation: none; }
+}
+
+input[type="range"] {
+  min-height: 32px;
+}
+
+.paper-lined {
+  background-image: repeating-linear-gradient(to bottom, transparent 0 31px, rgba(59,130,246,.25) 31px 32px);
+}
+.paper-grid {
+  background-image:
+    linear-gradient(rgba(59,130,246,.18) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(59,130,246,.18) 1px, transparent 1px);
+  background-size: 24px 24px;
+}
+.paper-dotted {
+  background-image: radial-gradient(rgba(100,116,139,.45) 1.1px, transparent 1.1px);
+  background-size: 20px 20px;
+}
+.paper-college {
+  background-image:
+    linear-gradient(90deg, transparent 0 44px, rgba(239,68,68,.35) 44px 45px, transparent 45px),
+    repeating-linear-gradient(to bottom, transparent 0 27px, rgba(59,130,246,.28) 27px 28px);
+}
