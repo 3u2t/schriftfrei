@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { Analytics } from '@vercel/analytics/react';
 import Layout from './components/Layout';
 import { AppProvider } from './state/AppContext';
 import { currentRoute, type RouteName } from './utils/router';
@@ -47,6 +48,7 @@ export default function App() {
         {route === 'fonts' && <FontsPage />}
         {route === 'settings' && <SettingsPage />}
       </Layout>
+      <Analytics />
     </AppProvider>
   );
 }
