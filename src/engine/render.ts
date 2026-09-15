@@ -20,6 +20,65 @@ export interface InkCtx {
   opacity: number;
 }
 
+/** Transformiert einen normierten Filled-Pfad (Höhe 1, Baseline 0.8) in absolute SVG-Koordinaten. */
+function transformFilledD(filled: string, g: PlacedGlyph, slantDeg: number): string | null {
+  const tokens = filled.trim().split(/\s+/);
+  if (tokens.length === 0) return null;
+  const shear = Math.tan(((slantDeg % 45) * Math.PI) / 180);
+  const rad = (g.rotation * Math.PI) / 180;
+  const cos = Math.cos(rad);
+  const sin = Math.sin(rad);
+  const boxH = g.boxH;
+  const half = boxH * 0.5;
+  const tx = (nx: number, ny: number): [number, number] => {
+    let lx = nx * boxH;
+    const ly = ny * boxH;
+    lx += -shear * (ny - 0.8) * boxH;
+    const rx = lx;
+    const ry = ly - half;
+    return [g.x + rx * cos - ry * sin, g.y + half + rx * sin + ry * cos];
+  };
+  const out: string[] = [];
+  let i = 0;
+  const num = (): number => {
+    const v = Number(tokens[i++]);
+    return Number.isFinite(v) ? v : 0;
+  };
+  while (i < tokens.length) {
+    const cmd = tokens[i++];
+    if (cmd === 'M' || cmd === 'L') {
+      const x = num();
+      const y = num();
+      const [ax, ay] = tx(x, y);
+      out.push(`${cmd} ${ax.toFixed(2)} ${ay.toFixed(2)}`);
+    } else if (cmd === 'Q') {
+      const x1 = num();
+      const y1 = num();
+      const x = num();
+      const y = num();
+      const [ax1, ay1] = tx(x1, y1);
+      const [ax, ay] = tx(x, y);
+      out.push(`Q ${ax1.toFixed(2)} ${ay1.toFixed(2)} ${ax.toFixed(2)} ${ay.toFixed(2)}`);
+    } else if (cmd === 'C') {
+      const x1 = num();
+      const y1 = num();
+      const x2 = num();
+      const y2 = num();
+      const x = num();
+      const y = num();
+      const [ax1, ay1] = tx(x1, y1);
+      const [ax2, ay2] = tx(x2, y2);
+      const [ax, ay] = tx(x, y);
+      out.push(`C ${ax1.toFixed(2)} ${ay1.toFixed(2)} ${ax2.toFixed(2)} ${ay2.toFixed(2)} ${ax.toFixed(2)} ${ay.toFixed(2)}`);
+    } else if (cmd === 'Z') {
+      out.push('Z');
+    } else {
+      return null;
+    }
+  }
+  return out.length > 0 ? out.join(' ') : null;
+}
+
 export function makeInkCtx(profile: HandwritingProfile, settings: DocSettings, inkOverride?: string): InkCtx {
   const pen = PEN_TYPES[settings.penType] ?? PEN_TYPES.ballpoint;
   return {
@@ -35,6 +94,14 @@ export function glyphStrokesToPaths(g: PlacedGlyph, ctx: InkCtx): string[] {
   const out: string[] = [];
   const slant = ctx.totalSlant + (g.italic ? 12 : 0);
   const wMul = g.bold ? 1.55 : 1;
+  if (g.variant.filled) {
+    const d = transformFilledD(g.variant.filled, g, slant);
+    if (d) {
+      const boldStroke = g.bold ? ` stroke="${ctx.ink}" stroke-width="${(ctx.baseW * 0.5).toFixed(2)}"` : '';
+      out.push(`<path d="${d}" fill="${ctx.ink}"${boldStroke}/>`);
+    }
+    return out;
+  }
   g.variant.strokes.forEach((stroke) => {
     if (stroke.points.length < 2) return;
     const proj = projectPoints(stroke.points, g.x, g.y, g.boxH, g.rotation, slant);

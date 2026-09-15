@@ -4,6 +4,7 @@ import { Button, Card } from '../components/ui';
 import { KindBadge } from '../components/ProfileSwitcher';
 import { clearAllData, deleteProfile, getProfile, listProfiles, saveProfile, storageEstimate } from '../storage/db';
 import { downloadProfile, parseProfileFile } from '../storage/profileTransfer';
+import { fontFileToProfile } from '../storage/fontImport';
 import type { HandwritingProfile } from '../engine/types';
 import { uid } from '../engine/types';
 import { useApp } from '../state/AppContext';
@@ -50,18 +51,29 @@ export default function SettingsPage() {
     setImporting(true);
     setTransferMsg(null);
     try {
-      const text = await f.text();
-      const parsed = parseProfileFile(text);
+      const lower = f.name.toLowerCase();
+      const isFont = /\.(ttf|otf|woff2?)$/.test(lower);
+      if (isFont) {
+        const { profile, imported, total } = await fontFileToProfile(f);
+        await saveProfile(profile);
+        await setActiveProfile(profile);
+        await reloadProfile();
+        await refresh();
+        setTransferMsg({ ok: true, text: `„${profile.name}" importiert: ${imported} von ${total} Zeichen – jetzt als eigene Schrift aktiv.` });
+      } else {
+        const text = await f.text();
+        const parsed = parseProfileFile(text);
 
-      if (await getProfile(parsed.id)) {
-        parsed.id = uid('profile');
-        parsed.name = `${parsed.name} (Import)`.slice(0, 80);
+        if (await getProfile(parsed.id)) {
+          parsed.id = uid('profile');
+          parsed.name = `${parsed.name} (Import)`.slice(0, 80);
+        }
+        await saveProfile(parsed);
+        await setActiveProfile(parsed);
+        await reloadProfile();
+        await refresh();
+        setTransferMsg({ ok: true, text: `„${parsed.name}" importiert: ${Object.keys(parsed.glyphs).length} Zeichen, Profil ${parsed.coverage} %.` });
       }
-      await saveProfile(parsed);
-      await setActiveProfile(parsed);
-      await reloadProfile();
-      await refresh();
-      setTransferMsg({ ok: true, text: `„${parsed.name}" importiert: ${Object.keys(parsed.glyphs).length} Zeichen, Profil ${parsed.coverage} %.` });
     } catch (e) {
       setTransferMsg({ ok: false, text: e instanceof Error ? e.message : 'Import fehlgeschlagen.' });
     } finally {
@@ -98,7 +110,7 @@ export default function SettingsPage() {
             <div key={p.id} className={cn('flex items-center gap-2 rounded-xl border px-3.5 py-2.5', profile?.id === p.id ? 'border-slate-900 dark:border-white' : 'border-slate-200 dark:border-slate-700')}>
               <div className="min-w-0 flex-1">
                 <p className="flex items-center gap-1.5 truncate text-sm font-bold">{p.name} <KindBadge profile={p} /></p>
-                <p className="text-xs text-slate-400">{Object.keys(p.glyphs).length} Zeichen · {p.coverage} % · {p.variantsPerChar} {p.variantsPerChar === 1 ? 'Variante' : 'Varianten'}/Zeichen</p>
+                <p className="text-xs text-slate-400">{Object.keys(p.glyphs).length} Zeichen · {p.coverage} % · {p.variantsPerChar} {p.variantsPerChar === 1 ? 'Variante' : 'Varianten'}/Zeichen{p.importedFrom ? ` · Import: ${p.importedFrom}` : ''}</p>
               </div>
               {profile?.id !== p.id && (
                 <Button variant="secondary" onClick={() => void activate(p)} className="min-h-[40px] px-3 text-xs">Aktivieren</Button>
@@ -121,11 +133,12 @@ export default function SettingsPage() {
         <h2 className="flex items-center gap-2 font-bold"><Upload size={17} /> Sichern & Übertragen</h2>
         <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
           Exportiere deine Handschrift als Datei – zur Sicherung oder um sie auf ein anderes Gerät (z. B. iPad) zu übertragen.
-          Zum Übertragen die Datei dort einfach hier wieder importieren.
+          Zum Übertragen die Datei dort einfach hier wieder importieren. Eigene Font-Dateien (.ttf, .otf, .woff) kannst du hier
+          ebenfalls als eigene Schrift importieren.
         </p>
-        <input ref={fileRef} type="file" accept=".json,application/json" className="hidden" onChange={(e) => void onImportFile(e.target.files?.[0])} aria-label="Handschriftprofil-Datei auswählen" />
+        <input ref={fileRef} type="file" accept=".json,.ttf,.otf,.woff,.woff2,application/json,font/ttf,font/otf,font/woff" className="hidden" onChange={(e) => void onImportFile(e.target.files?.[0])} aria-label="Handschriftprofil- oder Font-Datei auswählen" />
         <Button variant="secondary" onClick={() => fileRef.current?.click()} disabled={importing} className="mt-3 w-full">
-          <Upload size={15} /> {importing ? 'Wird importiert …' : 'Handschrift importieren (.schriftfrei.json)'}
+          <Upload size={15} /> {importing ? 'Wird importiert …' : 'Handschrift importieren (.schriftfrei.json / TTF/OTF)'}
         </Button>
         {transferMsg && (
           <p className={`mt-2 rounded-xl px-3.5 py-2.5 text-sm ${transferMsg.ok ? 'bg-emerald-50 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-200' : 'bg-red-50 text-red-700 dark:bg-red-950 dark:text-red-200'}`}>

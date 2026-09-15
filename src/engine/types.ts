@@ -25,6 +25,9 @@ export interface GlyphVariant {
   baselineOffset: number;
 
   rawHeight?: number;
+
+  /** Importierte Outline-Schrift (TTF/OTF): normierter SVG-Pfad, Höhe = 1, Baseline bei y = 0.8. */
+  filled?: string;
 }
 
 export type CharMap = Record<string, GlyphVariant[]>;
@@ -60,6 +63,9 @@ export interface HandwritingProfile {
   sentencesDone: string[];
 
   suggestedSettings?: Partial<DocSettings>;
+
+  /** Dateiname der importierten Font-Datei (TTF/OTF), falls zutreffend. */
+  importedFrom?: string;
 }
 
 

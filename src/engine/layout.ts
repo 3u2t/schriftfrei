@@ -361,6 +361,10 @@ export function layoutPages(
       let cur: PlacedGlyph[] = [];
       let curW = 0;
       let maxSeen = 0;
+      // Toleranz gegen Fließkomma-Rundung an der exakten Spaltenbreite:
+      // Die Spalte wurde aus der natürlichen Breite vermessen, beim finalen
+      // Layout darf ein Wort an der Grenze nicht in die nächste Zeile rutschen.
+      const EPS = Math.max(1, boxH * 0.04);
       const flush = () => {
         if (cur.length > 0) {
           const last = cur[cur.length - 1];
@@ -383,22 +387,25 @@ export function layoutPages(
         while (word.length > 0) {
           let total = 0;
           for (const ch of word) total += cwOf(ch, boxH);
-          if (curW + total <= maxLineW || cur.length === 0) {
-            if (total + curW > maxLineW && cur.length === 0) {
+          if (curW + total <= maxLineW + EPS || cur.length === 0) {
+            if (total + curW > maxLineW + EPS && cur.length === 0) {
               let fit = 0;
               let acc = curW;
               for (const ch of word) {
                 const w = cwOf(ch, boxH);
-                if (acc + w > maxLineW && fit > 0) break;
+                if (acc + w > maxLineW + EPS && fit > 0) break;
                 acc += w;
                 fit++;
               }
               fit = Math.max(1, fit);
-              curW = placeWord(word.slice(0, fit), flags, boxH, cur, curW, out.length * lineH, false);
+              // y0 = 0: Der Zeilenversatz (li * lineH) wird später in
+              // positionRow addiert – hier nichts vorab einrechnen (sonst
+              // doppelt und die Zeile läuft in die nächste Tabellenzeile).
+              curW = placeWord(word.slice(0, fit), flags, boxH, cur, curW, 0, false);
               word = word.slice(fit);
               flush();
             } else {
-              curW = placeWord(word, flags, boxH, cur, curW, out.length * lineH, false);
+              curW = placeWord(word, flags, boxH, cur, curW, 0, false);
               word = '';
             }
           } else {
@@ -418,7 +425,9 @@ export function layoutPages(
     for (let jc = 0; jc < cols; jc++) {
       let m = minContent;
       for (let r = 0; r < allRows.length; r++) m = Math.max(m, natural[r][jc]);
-      contentW.push(m);
+      // Kleine Reserve: Messung und finales Layout können minimal abweichen
+      // (Varianten-Auswahl, Rundung) – ohne Reserve bricht die letzte Ziffer um.
+      contentW.push(m + boxH * 0.08);
     }
     const pads = padX * 2 * cols;
 

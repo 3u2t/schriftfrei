@@ -18,6 +18,49 @@ import { cn } from '../utils/cn';
 function MiniGlyph({ variant, missing }: { variant: GlyphVariant; missing?: boolean }) {
   const W = 56;
   const H = 72;
+  if (variant.filled) {
+    const tokens = variant.filled.trim().split(/\s+/);
+    let i = 0;
+    const num = (): number => {
+      const v = Number(tokens[i++]);
+      return Number.isFinite(v) ? v : 0;
+    };
+    const sx = (x: number) => 4 + x * (W - 8);
+    const sy = (y: number) => 2 + y * (H - 4);
+    const out: string[] = [];
+    while (i < tokens.length) {
+      const cmd = tokens[i++];
+      if (cmd === 'M' || cmd === 'L') {
+        const x = num();
+        const y = num();
+        out.push(`${cmd} ${sx(x).toFixed(1)} ${sy(y).toFixed(1)}`);
+      } else if (cmd === 'Q') {
+        const x1 = num();
+        const y1 = num();
+        const x = num();
+        const y = num();
+        out.push(`Q ${sx(x1).toFixed(1)} ${sy(y1).toFixed(1)} ${sx(x).toFixed(1)} ${sy(y).toFixed(1)}`);
+      } else if (cmd === 'C') {
+        const x1 = num();
+        const y1 = num();
+        const x2 = num();
+        const y2 = num();
+        const x = num();
+        const y = num();
+        out.push(`C ${sx(x1).toFixed(1)} ${sy(y1).toFixed(1)} ${sx(x2).toFixed(1)} ${sy(y2).toFixed(1)} ${sx(x).toFixed(1)} ${sy(y).toFixed(1)}`);
+      } else if (cmd === 'Z') {
+        out.push('Z');
+      } else {
+        break;
+      }
+    }
+    return (
+      <svg viewBox={`0 0 ${W} ${H}`} className="h-[72px] w-[56px]" aria-hidden="true">
+        <rect x="0" y="0" width={W} height={H} rx="10" fill={missing ? '#f1f5f9' : '#ffffff'} />
+        <path d={out.join(' ')} fill={missing ? '#94a3b8' : '#1c2742'} fillOpacity={missing ? 0.6 : 1} />
+      </svg>
+    );
+  }
   const paths = variant.strokes
     .map((s) => {
       if (s.points.length < 2) return '';

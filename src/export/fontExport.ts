@@ -73,6 +73,53 @@ function combinePaths(paths: opentype.Path[]): opentype.Path {
 }
 
 
+function filledToPath(filled: string): opentype.Path {
+  const path = new opentype.Path();
+  const tokens = filled.trim().split(/\s+/);
+  let i = 0;
+  const num = (): number => {
+    const v = Number(tokens[i++]);
+    return Number.isFinite(v) ? v : 0;
+  };
+  const FX = (x: number) => LSB + x * BODY;
+  const FY = (y: number) => (BASELINE_BOX_Y - y) * BODY;
+  while (i < tokens.length) {
+    const cmd = tokens[i++];
+    if (cmd === 'M') {
+      const x = num();
+      const y = num();
+      path.moveTo(Math.round(FX(x)), Math.round(FY(y)));
+    } else if (cmd === 'L') {
+      const x = num();
+      const y = num();
+      path.lineTo(Math.round(FX(x)), Math.round(FY(y)));
+    } else if (cmd === 'Q') {
+      const x1 = num();
+      const y1 = num();
+      const x = num();
+      const y = num();
+      path.quadraticCurveTo(Math.round(FX(x1)), Math.round(FY(y1)), Math.round(FX(x)), Math.round(FY(y)));
+    } else if (cmd === 'C') {
+      const x1 = num();
+      const y1 = num();
+      const x2 = num();
+      const y2 = num();
+      const x = num();
+      const y = num();
+      path.bezierCurveTo(
+        Math.round(FX(x1)), Math.round(FY(y1)),
+        Math.round(FX(x2)), Math.round(FY(y2)),
+        Math.round(FX(x)), Math.round(FY(y)),
+      );
+    } else if (cmd === 'Z') {
+      path.close();
+    } else {
+      break;
+    }
+  }
+  return path;
+}
+
 export function buildTtf(profile: HandwritingProfile): ArrayBuffer {
   const glyphs: opentype.Glyph[] = [];
 
@@ -85,11 +132,16 @@ export function buildTtf(profile: HandwritingProfile): ArrayBuffer {
     const variants = profile.glyphs[ch];
     if (!variants || variants.length === 0) continue;
     const v = variants[0];
-    const contours = v.strokes
-      .filter((s) => s.points.length > 0)
-      .map((s) => strokeToContour(s.points))
-      .filter((c) => c.length >= 3);
-    const path = combinePaths(contours.map(contourToPath));
+    let path: opentype.Path;
+    if (v.filled) {
+      path = filledToPath(v.filled);
+    } else {
+      const contours = v.strokes
+        .filter((s) => s.points.length > 0)
+        .map((s) => strokeToContour(s.points))
+        .filter((c) => c.length >= 3);
+      path = combinePaths(contours.map(contourToPath));
+    }
     const code = ch.codePointAt(0) ?? 32;
     glyphs.push(
       new opentype.Glyph({

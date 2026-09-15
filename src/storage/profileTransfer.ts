@@ -47,11 +47,13 @@ function sanitizeVariant(v: unknown): GlyphVariant | null {
     const clean = sanitizeStroke(s);
     if (clean && clean.points.length >= 1) strokes.push(clean);
   }
-  if (strokes.length === 0) return null;
+  const filled = typeof o.filled === 'string' && o.filled.length > 0 && o.filled.length < 200000 ? o.filled : undefined;
+  if (strokes.length === 0 && !filled) return null;
   return {
     strokes,
     widthFactor: isFiniteNum(o.widthFactor) ? Math.min(2, Math.max(0.1, o.widthFactor)) : 0.5,
     baselineOffset: isFiniteNum(o.baselineOffset) ? Math.min(0.5, Math.max(-0.5, o.baselineOffset)) : 0,
+    ...(filled ? { filled } : {}),
   };
 }
 
@@ -133,6 +135,7 @@ export function parseProfileFile(text: string): HandwritingProfile {
     variantsPerChar: vpc,
     sentenceSamples,
     sentencesDone,
+    ...(typeof p.importedFrom === 'string' && p.importedFrom.length > 0 ? { importedFrom: p.importedFrom.slice(0, 120) } : {}),
   };
 }
 
