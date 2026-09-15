@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type { InkPoint, InkStroke, PointerMode } from '../engine/types';
 import { countStrokes } from '../engine/normalize';
 
@@ -15,7 +15,7 @@ interface Props {
   showGuides?: boolean;
   inkColor?: string;
   minHeight?: number;
-  apiRef?: React.MutableRefObject<InkCanvasHandle | null>;
+  apiRef?: React.RefObject<InkCanvasHandle | null>;
 }
 
 const MODE_HINT: Record<PointerMode, string> = {
@@ -27,7 +27,6 @@ const MODE_HINT: Record<PointerMode, string> = {
 
 export default function InkCanvas({ onChange, pointerMode = 'all', showGuides = true, inkColor = '#1c2742', minHeight = 300, apiRef }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const wrapRef = useRef<HTMLDivElement>(null);
   const strokesRef = useRef<InkStroke[]>([]);
   const currentRef = useRef<InkStroke | null>(null);
   const activePointerRef = useRef<number | null>(null);
@@ -40,6 +39,7 @@ export default function InkCanvas({ onChange, pointerMode = 'all', showGuides = 
     if (!ctx) return;
     const dpr = Math.max(1, window.devicePixelRatio || 1);
     const rect = canvas.getBoundingClientRect();
+    if (rect.width <= 0 || rect.height <= 0) return;
     if (canvas.width !== Math.round(rect.width * dpr) || canvas.height !== Math.round(rect.height * dpr)) {
       canvas.width = Math.round(rect.width * dpr);
       canvas.height = Math.round(rect.height * dpr);
@@ -100,12 +100,15 @@ export default function InkCanvas({ onChange, pointerMode = 'all', showGuides = 
   }, [showGuides, inkColor]);
 
   const emit = () => {
-    onChange?.(strokesRef.current);
+    onChange?.([...strokesRef.current]);
     force((n) => n + 1);
   };
 
-  const pointFromEvent = (e: React.PointerEvent, t0: number): InkPoint => {
-    const rect = canvasRef.current!.getBoundingClientRect();
+  const pointFromEvent = (e: React.PointerEvent, t0: number): InkPoint | null => {
+    const canvas = canvasRef.current;
+    if (!canvas) return null;
+    const rect = canvas.getBoundingClientRect();
+    if (rect.width <= 0 || rect.height <= 0) return null;
     return {
       x: (e.clientX - rect.left) / rect.width,
       y: (e.clientY - rect.top) / rect.height,
@@ -135,8 +138,10 @@ export default function InkCanvas({ onChange, pointerMode = 'all', showGuides = 
     e.preventDefault();
     const t0 = performance.now();
     const tool = kind === 'pen' ? 'pen' : kind === 'mouse' ? 'mouse' : kind === 'touch' ? 'touch' : 'unknown';
+    const first = pointFromEvent(e, t0);
+    if (!first) return;
     activePointerRef.current = e.pointerId;
-    currentRef.current = { points: [pointFromEvent(e, t0)], tool };
+    currentRef.current = { points: [first], tool };
     (currentRef.current as InkStroke & { _t0?: number })._t0 = t0;
     drawAll();
   };
@@ -151,7 +156,10 @@ export default function InkCanvas({ onChange, pointerMode = 'all', showGuides = 
     for (const ce of evts) {
       const pe = ce as PointerEvent;
       if (typeof pe.pointerId === 'number' && pe.pointerId !== e.pointerId) continue;
-      const rect = canvasRef.current!.getBoundingClientRect();
+      const canvas = canvasRef.current;
+      if (!canvas) continue;
+      const rect = canvas.getBoundingClientRect();
+      if (rect.width <= 0 || rect.height <= 0) continue;
       const last = cur.points[cur.points.length - 1];
       let nx = (pe.clientX - rect.left) / rect.width;
       let ny = (pe.clientY - rect.top) / rect.height;
@@ -189,48 +197,59 @@ export default function InkCanvas({ onChange, pointerMode = 'all', showGuides = 
     emit();
   };
 
-  const api: InkCanvasHandle = {
-    clear: () => {
-      strokesRef.current = [];
-      currentRef.current = null;
-      activePointerRef.current = null;
-      drawAll();
-      emit();
-    },
-    undo: () => {
-      strokesRef.current.pop();
-      drawAll();
-      emit();
-    },
-    getStrokes: () => strokesRef.current,
+  /** Abgebrochene Striche (Palm-Rejection, System-Abbruch) verwerfen statt speichern. */
+  const cancelStroke = (e: React.PointerEvent) => {
+    const cur = currentRef.current;
+    if (!cur || activePointerRef.current !== e.pointerId) return;
+    e.preventDefault();
+    activePointerRef.current = null;
+    currentRef.current = null;
+    drawAll();
+    force((n) => n + 1);
   };
-  (canvasRef as unknown as { __api?: InkCanvasHandle }).__api = api;
-  if (apiRef) apiRef.current = api;
+
+  const api = useMemo<InkCanvasHandle>(
+    () => ({
+      clear: () => {
+        strokesRef.current = [];
+        currentRef.current = null;
+        activePointerRef.current = null;
+        drawAll();
+        emit();
+      },
+      undo: () => {
+        strokesRef.current.pop();
+        drawAll();
+        emit();
+      },
+      getStrokes: () => [...strokesRef.current],
+    }),
+    // drawAll/emit nutzen nur Refs – einmaliges api-Objekt genügt.
+    [],
+  );
+  useEffect(() => {
+    if (apiRef) apiRef.current = api;
+  }, [api, apiRef]);
 
   const strokeCount = countStrokes(currentRef.current ? [...strokesRef.current, currentRef.current] : strokesRef.current);
 
   return (
-    <div ref={wrapRef}>
+    <div>
       <canvas
         ref={canvasRef}
-        className="ink-canvas block w-full rounded-2xl border border-slate-200 bg-white shadow-inner dark:border-slate-700 dark:bg-slate-900"
+        className="ink-canvas block w-full touch-none rounded-2xl border border-slate-200 bg-white shadow-inner dark:border-slate-700 dark:bg-slate-900"
         style={{ height: minHeight }}
         onPointerDown={startStroke}
         onPointerMove={moveStroke}
         onPointerUp={endStroke}
-        onPointerCancel={endStroke}
+        onPointerCancel={cancelStroke}
         onContextMenu={(e) => e.preventDefault()}
         aria-label="Schreibfläche – mit Maus, Finger oder Apple Pencil schreiben"
       />
-      <div className="mt-1 flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
+      <div className="mt-1 flex items-center justify-between text-xs text-slate-500 dark:text-slate-400" aria-live="polite">
         <span>{strokeCount} {strokeCount === 1 ? 'Strich' : 'Striche'} erkannt</span>
         <span>{MODE_HINT[pointerMode]}</span>
       </div>
     </div>
   );
-}
-
-
-export function emptyInkHandle(): InkCanvasHandle {
-  return { clear: () => undefined, undo: () => undefined, getStrokes: () => [] };
 }

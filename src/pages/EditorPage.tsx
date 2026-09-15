@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { AlignCenter, AlignJustify, AlignLeft, AlignRight, CalendarDays, ChevronLeft, ChevronRight, Dices, Download, FileDown, FileUp, PenLine, Shuffle, Table as TableIcon } from 'lucide-react';
+import { AlignCenter, AlignJustify, AlignLeft, AlignRight, CalendarDays, ChevronLeft, ChevronRight, Clipboard, ClipboardList, Dices, Download, FileDown, FileUp, PenLine, Shuffle, Table as TableIcon } from 'lucide-react';
 import PageViewer, { buildAllPageSvgs } from '../components/PageViewer';
 import ProfileSwitcher from '../components/ProfileSwitcher';
 import { Button, Card, Empty, Slider } from '../components/ui';
@@ -46,6 +46,7 @@ export default function EditorPage() {
   const [exportError, setExportError] = useState<string | null>(null);
   const [transparent, setTransparent] = useState(false);
   const [quality, setQuality] = useState<ExportQualityId>('hd');
+  const [toolMsg, setToolMsg] = useState<string | null>(null);
   const [showSettings, setShowSettings] = useState(false);
   const saveTimer = useRef<number | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -130,6 +131,32 @@ export default function EditorPage() {
   const insertDate = () => {
     const d = new Date().toLocaleDateString('de-DE', { day: 'numeric', month: 'long', year: 'numeric' });
     insertAtCursor(d);
+  };
+
+  const insertHomeworkHead = () => {
+    setToolMsg(null);
+    const d = new Date().toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' });
+    insertAtCursor(`Name: ______  Klasse: ______\nFach: ______  Datum: ${d}\nThema: ______\n\n`);
+    setPage(0);
+  };
+
+  const pasteFromClipboard = async () => {
+    setToolMsg(null);
+    try {
+      if (!navigator.clipboard?.readText) {
+        setToolMsg('Zwischenablage-Zugriff geht hier nicht – Text einfach direkt ins Feld kopieren (Strg+V).');
+        return;
+      }
+      const t = await navigator.clipboard.readText();
+      if (!t) {
+        setToolMsg('Zwischenablage ist leer – erst z. B. in ChatGPT kopieren.');
+        return;
+      }
+      insertAtCursor(t.slice(0, 60000));
+      setPage(0);
+    } catch {
+      setToolMsg('Kein Zugriff – bitte im Browser erlauben oder direkt einfügen (Strg+V).');
+    }
   };
 
   const insertTable = () => {
@@ -260,8 +287,14 @@ export default function EditorPage() {
           <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-400">
             <span className="tabular-nums">{words} {words === 1 ? 'Wort' : 'Wörter'} · {text.length} Zeichen · {total} {total === 1 ? 'Seite' : 'Seiten'}</span>
             <span className="ml-auto flex items-center gap-2">
+              <button className="inline-flex min-h-[32px] items-center gap-1 font-medium hover:text-slate-600 dark:hover:text-slate-300" onClick={() => void pasteFromClipboard()} title="Text aus der Zwischenablage einfügen (z. B. aus ChatGPT)">
+                <Clipboard size={13} /> Einfügen
+              </button>
               <button className="inline-flex min-h-[32px] items-center gap-1 font-medium hover:text-slate-600 dark:hover:text-slate-300" onClick={insertDate} title="Aktuelles Datum einfügen">
                 <CalendarDays size={13} /> Datum
+              </button>
+              <button className="inline-flex min-h-[32px] items-center gap-1 font-medium hover:text-slate-600 dark:hover:text-slate-300" onClick={insertHomeworkHead} title="Kopf für Hausaufgaben einfügen (Name, Klasse, Fach, Datum)">
+                <ClipboardList size={13} /> Aufgaben-Kopf
               </button>
               <button className="inline-flex min-h-[32px] items-center gap-1 font-medium hover:text-slate-600 dark:hover:text-slate-300" onClick={() => txtRef.current?.click()} title="Textdatei importieren (.txt, .md)">
                 <FileUp size={13} /> Import
@@ -274,9 +307,10 @@ export default function EditorPage() {
               </button>
             </span>
           </div>
+          {toolMsg && <p className="mt-1.5 rounded-xl bg-blue-50 px-3 py-2 text-[11px] font-medium text-blue-800 dark:bg-blue-950 dark:text-blue-200">{toolMsg}</p>}
           <input ref={txtRef} type="file" accept=".txt,.md,.markdown,text/plain" className="hidden" onChange={(e) => void onTxtFile(e.target.files?.[0])} aria-label="Textdatei importieren" />
           <p className="mt-1.5 rounded-xl bg-slate-50 px-3 py-2 text-[11px] leading-relaxed text-slate-400 dark:bg-slate-900 dark:text-slate-500">
-            Formatierung: <b># Überschrift</b> · <b>- Liste</b> · <b>1. Nummeriert</b> · <b>**fett**</b> · <b>*kursiv*</b> · <b>~~durchgestrichen~~</b> · <b>__unterstrichen__</b> · <b>---</b> Trennlinie · <b>| Tabelle |</b> (z. B. aus ChatGPT einfügen)
+            Formatierung: <b># Überschrift</b> · <b>- Liste</b> · <b>- [ ] Checkliste</b> · <b>1. Nummeriert</b> · <b>**fett**</b> · <b>*kursiv*</b> · <b>~~durchgestrichen~~</b> · <b>__unterstrichen__</b> · <b>___ Lücke</b> (Arbeitsblatt) · <b>---</b> Trennlinie · <b>| Tabelle |</b> (z. B. aus ChatGPT einfügen)
           </p>
 
           {showSettings && (

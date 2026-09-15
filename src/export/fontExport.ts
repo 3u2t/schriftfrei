@@ -1,5 +1,8 @@
 import * as opentype from 'opentype.js';
-import type { HandwritingProfile, InkPoint } from '../engine/types';
+import type { GlyphVariant, HandwritingProfile, InkPoint } from '../engine/types';
+import { demoGlyphFor } from '../engine/demoGenerator';
+import { ALL_TRAIN_CHARS } from '../training/charset';
+import { safeFilename } from './exporters';
 
 const UPM = 1000;
 const BODY = 700;
@@ -120,28 +123,27 @@ function filledToPath(filled: string): opentype.Path {
   return path;
 }
 
+function variantToPath(v: GlyphVariant): opentype.Path | null {
+  if (v.filled) return filledToPath(v.filled);
+  const contours = v.strokes
+    .filter((s) => s.points.length > 0)
+    .map((s) => strokeToContour(s.points))
+    .filter((c) => c.length >= 3);
+  if (contours.length === 0) return null;
+  return combinePaths(contours.map(contourToPath));
+}
+
 export function buildTtf(profile: HandwritingProfile): ArrayBuffer {
   const glyphs: opentype.Glyph[] = [];
 
   glyphs.push(new opentype.Glyph({ name: '.notdef', unicode: 0, advanceWidth: 500, path: new opentype.Path() }));
 
-  const chars = Object.keys(profile.glyphs)
-    .filter((c) => c.length === 1 && c !== ' ')
-    .sort();
-  for (const ch of chars) {
-    const variants = profile.glyphs[ch];
-    if (!variants || variants.length === 0) continue;
-    const v = variants[0];
-    let path: opentype.Path;
-    if (v.filled) {
-      path = filledToPath(v.filled);
-    } else {
-      const contours = v.strokes
-        .filter((s) => s.points.length > 0)
-        .map((s) => strokeToContour(s.points))
-        .filter((c) => c.length >= 3);
-      path = combinePaths(contours.map(contourToPath));
-    }
+  const seen = new Set<string>();
+  const pushChar = (ch: string, v: GlyphVariant) => {
+    if (seen.has(ch)) return;
+    seen.add(ch);
+    const path = variantToPath(v);
+    if (!path) return;
     const code = ch.codePointAt(0) ?? 32;
     glyphs.push(
       new opentype.Glyph({
@@ -151,6 +153,19 @@ export function buildTtf(profile: HandwritingProfile): ArrayBuffer {
         path,
       }),
     );
+  };
+  // Wie im Editor: Fehlendes im Demo-Stil ergänzen, damit die Schrift
+  // überall gleich vollständig ist (keine .notdef-Kästchen in Word & Co.).
+  for (const ch of ALL_TRAIN_CHARS) {
+    if (ch === ' ') continue;
+    const list = profile.glyphs[ch];
+    pushChar(ch, list && list.length > 0 ? list[0] : demoGlyphFor(ch, 99));
+  }
+  const extra = Object.keys(profile.glyphs).sort();
+  for (const ch of extra) {
+    if (ch.length !== 1 || ch === ' ') continue;
+    const list = profile.glyphs[ch];
+    if (list && list.length > 0) pushChar(ch, list[0]);
   }
 
   glyphs.push(new opentype.Glyph({ name: 'space', unicode: 32, advanceWidth: 300, path: new opentype.Path() }));
@@ -171,10 +186,9 @@ export function downloadTtf(profile: HandwritingProfile): void {
   const buffer = buildTtf(profile);
   const blob = new Blob([buffer], { type: 'font/otf' });
   const url = URL.createObjectURL(blob);
-  const safe = profile.name.trim().toLowerCase().replace(/[^\wäöüÄÖÜß-]+/g, '-').replace(/-+/g, '-').slice(0, 60) || 'handschrift';
   const a = document.createElement('a');
   a.href = url;
-  a.download = `${safe}.otf`;
+  a.download = `${safeFilename(profile.name)}.otf`;
   document.body.appendChild(a);
   a.click();
   a.remove();

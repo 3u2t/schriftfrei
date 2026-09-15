@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import type { HandwritingProfile } from '../engine/types';
 import { KV_KEYS, getProfile, kvGet, kvSet, listProfiles } from '../storage/db';
 
@@ -9,32 +9,44 @@ interface AppState {
   reloadProfile: () => Promise<void>;
 }
 
-const Ctx = createContext<AppState>({
-  profile: null,
-  loading: true,
-  setActiveProfile: async () => undefined,
-  reloadProfile: async () => undefined,
-});
+const Ctx = createContext<AppState | null>(null);
 
 export function AppProvider({ children }: { children: React.ReactNode }) {
   const [profile, setProfile] = useState<HandwritingProfile | null>(null);
   const [loading, setLoading] = useState(true);
+  const mounted = useRef(true);
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+    };
+  }, []);
 
   const reloadProfile = useCallback(async () => {
-    const activeId = await kvGet<string | null>(KV_KEYS.activeProfileId, null);
-    if (activeId) {
-      const p = await getProfile(activeId);
-      if (p) {
-        setProfile(p);
-        setLoading(false);
-        return;
+    try {
+      const activeId = await kvGet<string | null>(KV_KEYS.activeProfileId, null);
+      if (activeId) {
+        const p = await getProfile(activeId);
+        if (p) {
+          if (mounted.current) {
+            setProfile(p);
+            setLoading(false);
+          }
+          return;
+        }
       }
+      const all = await listProfiles();
+      const own = all.find((p) => !p.isDemo) ?? all[0] ?? null;
+      if (own) await kvSet(KV_KEYS.activeProfileId, own.id);
+      else await kvSet(KV_KEYS.activeProfileId, null);
+      if (mounted.current) {
+        setProfile(own);
+        setLoading(false);
+      }
+    } catch {
+      // IndexedDB nicht verfügbar (Privatmodus etc.) – App bleibt benutzbar.
+      if (mounted.current) setLoading(false);
     }
-    const all = await listProfiles();
-    const own = all.find((p) => !p.isDemo) ?? all[0] ?? null;
-    if (own) await kvSet(KV_KEYS.activeProfileId, own.id);
-    setProfile(own);
-    setLoading(false);
   }, []);
 
   useEffect(() => {
@@ -42,13 +54,23 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }, [reloadProfile]);
 
   const setActiveProfile = useCallback(async (p: HandwritingProfile | null) => {
-    await kvSet(KV_KEYS.activeProfileId, p ? p.id : null);
     setProfile(p);
+    try {
+      await kvSet(KV_KEYS.activeProfileId, p ? p.id : null);
+    } catch {
+      // Auswahl gilt nur für diese Sitzung.
+    }
   }, []);
 
-  return <Ctx.Provider value={{ profile, loading, setActiveProfile, reloadProfile }}>{children}</Ctx.Provider>;
+  const value = useMemo(
+    () => ({ profile, loading, setActiveProfile, reloadProfile }),
+    [profile, loading, setActiveProfile, reloadProfile],
+  );
+  return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }
 
 export function useApp(): AppState {
-  return useContext(Ctx);
+  const ctx = useContext(Ctx);
+  if (!ctx) throw new Error('useApp nur innerhalb von <AppProvider> verwenden.');
+  return ctx;
 }

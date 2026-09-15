@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Check, Download, PenLine, ShieldCheck, Sparkles, TabletSmartphone, Type } from 'lucide-react';
+import { Check, Download, GraduationCap, PenLine, ShieldCheck, Sparkles, TabletSmartphone, Type } from 'lucide-react';
 import { Button, Card } from '../components/ui';
 import { navigate } from '../utils/router';
 import { createDemoProfile } from '../engine/demoGenerator';
@@ -11,7 +11,8 @@ const BENEFITS = [
   { icon: PenLine, text: 'Deine eigene Handschrift, trainiert von dir' },
   { icon: TabletSmartphone, text: 'Funktioniert auf iPad mit Apple Pencil' },
   { icon: Type, text: 'Überschriften, Listen, Fett & Kursiv, Blocksatz' },
-  { icon: Download, text: 'PDF, Bild, SVG, GoodNotes – und als Schriftdatei (.otf)' },
+  { icon: Download, text: 'PDF & GoodNotes (Vektor), PNG/JPG/SVG – und als Schriftdatei (.otf)' },
+  { icon: GraduationCap, text: 'Ideal für Schule: Lückentexte, Checklisten & Tabellen aus ChatGPT' },
   { icon: Sparkles, text: 'Stiftfarben, Stifttypen & Papierformate wie bei Profi-Tools' },
 ];
 
@@ -33,7 +34,6 @@ export default function LandingPage() {
 
   return (
     <div className="anim-fade-up">
-      {}
       <section className="mx-auto max-w-3xl px-2 pb-10 pt-10 text-center md:pt-16">
         <p className="anim-fade-up mb-4 inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3.5 py-1.5 text-xs font-semibold text-slate-600 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300">
           <Sparkles size={14} /> Kostenlos · Lokal · Ohne Anmeldung
@@ -64,12 +64,11 @@ export default function LandingPage() {
         </ul>
       </section>
 
-      {}
       <section className="mx-auto grid max-w-5xl gap-4 md:grid-cols-3">
         {[
           { n: '1', t: 'Handschrift trainieren', d: 'Schreibe Buchstaben, Zahlen und Sätze einmalig mit Finger, Maus oder Apple Pencil.' },
           { n: '2', t: 'Text einfügen', d: 'Jeder digitale Text wird live in deine persönliche Handschrift verwandelt.' },
-          { n: '3', t: 'Exportieren', d: 'Mehrseitige Dokumente als PNG, JPG, SVG, PDF – oder optimiert für GoodNotes.' },
+          { n: '3', t: 'Exportieren', d: 'Alle Seiten als PDF oder Vektor-PDF für GoodNotes – Einzelseiten auch als PNG, JPG, SVG.' },
         ].map((s) => (
           <Card key={s.n}>
             <p className="flex h-9 w-9 items-center justify-center rounded-xl bg-slate-900 text-sm font-bold text-white dark:bg-white dark:text-slate-900">{s.n}</p>

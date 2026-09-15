@@ -20,6 +20,10 @@ function db(): Promise<IDBPDatabase> {
         if (!d.objectStoreNames.contains('documents')) d.createObjectStore('documents', { keyPath: 'id' });
         if (!d.objectStoreNames.contains('kv')) d.createObjectStore('kv', { keyPath: 'key' });
       },
+    }).catch((e) => {
+      // Fehlgeschlagenes Öffnen nicht für ewig cachen (Privatmodus etc.) – Retry erlauben.
+      dbPromise = null;
+      throw e;
     });
   }
   return dbPromise;
@@ -38,7 +42,7 @@ export async function getProfile(id: string): Promise<HandwritingProfile | undef
 
 export async function listProfiles(): Promise<HandwritingProfile[]> {
   const d = await db();
-  return ((await d.getAll('profiles')) as HandwritingProfile[]).sort((a, b) => b.updatedAt - a.updatedAt);
+  return ((await d.getAll('profiles')) as HandwritingProfile[]).sort((a, b) => (b.updatedAt ?? 0) - (a.updatedAt ?? 0));
 }
 
 export async function deleteProfile(id: string): Promise<void> {
@@ -49,7 +53,7 @@ export async function deleteProfile(id: string): Promise<void> {
 
 export async function saveDocument(doc: TextDocument): Promise<void> {
   const d = await db();
-  await d.put('documents', doc as Schema['documents']);
+  await d.put('documents', { ...doc, updatedAt: doc.updatedAt ?? Date.now() } as Schema['documents']);
 }
 
 export async function getDocument(id: string): Promise<TextDocument | undefined> {
@@ -59,7 +63,7 @@ export async function getDocument(id: string): Promise<TextDocument | undefined>
 
 export async function listDocuments(): Promise<TextDocument[]> {
   const d = await db();
-  return ((await d.getAll('documents')) as TextDocument[]).sort((a, b) => b.updatedAt - a.updatedAt);
+  return ((await d.getAll('documents')) as TextDocument[]).sort((a, b) => (b.updatedAt ?? 0) - (a.updatedAt ?? 0));
 }
 
 export async function deleteDocument(id: string): Promise<void> {
@@ -98,7 +102,8 @@ export async function clearAllData(): Promise<void> {
     const req = indexedDB.deleteDatabase(DB_NAME);
     req.onsuccess = () => resolve();
     req.onerror = () => reject(req.error);
-    req.onblocked = () => resolve();
+    // Blockiert (noch offene Tabs): kein stiller Erfolg – Fehler statt falscher Meldung.
+    req.onblocked = () => reject(new Error('Löschen blockiert – bitte alle anderen Tabs mit der App schließen und erneut versuchen.'));
   });
 }
 

@@ -75,5 +75,5 @@ export function createStyleProfile(styleId: string): HandwritingProfile {
 }
 
 export function styleSampleText(styleName: string): string {
-  return `Hallo, das ist die Schrift „${styleName}".\nFranz jagt im Taxi quer durch Bayern. 0123456789`;
+  return `Hallo, das ist die Schrift „${styleName}".\nDès Noël, garçon Æsop: 12 plus 5 €, 100 % – ça roule?`;
 }

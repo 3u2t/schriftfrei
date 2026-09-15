@@ -1,7 +1,9 @@
 import * as opentype from 'opentype.js';
 import type { CharMap, HandwritingProfile } from '../engine/types';
 import { defaultMetrics, uid } from '../engine/types';
-import { ALL_TRAIN_CHARS } from '../training/charset';
+import { ALL_TRAIN_CHARS, DIGITS, FRENCH, LOWER, SIGNS, UPPER } from '../training/charset';
+
+const CORE_CHARS = new Set([...LOWER, ...UPPER, ...DIGITS, ...SIGNS, ...FRENCH]);
 
 const FONT_SIZE = 1000;
 
@@ -45,6 +47,8 @@ export interface FontImportResult {
   imported: number;
   total: number;
   missing: string[];
+  /** Fehlende Kernzeichen (Deutsch/Französisch/Zeichen) – Extended-Latein ist Bonus. */
+  coreMissing: string[];
 }
 
 export async function fontFileToProfile(file: File): Promise<FontImportResult> {
@@ -142,5 +146,5 @@ export async function fontFileToProfile(file: File): Promise<FontImportResult> {
     importedFrom: file.name.slice(0, 120),
   };
 
-  return { profile, imported, total: ALL_TRAIN_CHARS.length, missing };
+  return { profile, imported, total: ALL_TRAIN_CHARS.length, missing, coreMissing: missing.filter((c) => CORE_CHARS.has(c)) };
 }

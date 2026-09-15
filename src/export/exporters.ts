@@ -189,12 +189,26 @@ export async function exportForGoodNotes(svgs: string[], title: string): Promise
   // Objekte in PDF-Apps auswählbar) statt gerastertem Bild.
   const pages = svgs.map((s) => svgToPdfPage(s, (href) => cache.get(href) ?? null));
   const bytes = buildPdf(pages, { title: `${title} (GoodNotes)`, creator: 'Schriftfrei (lokal)' });
-  const safe = title.trim().toLowerCase().replace(/[^\wäöüÄÖÜß-]+/g, '-').replace(/-+/g, '-').slice(0, 60) || 'handschrift';
-  downloadBlob(new Blob([new Uint8Array(bytes)], { type: 'application/pdf' }), `goodnotes-${safe}.pdf`);
+  downloadBlob(new Blob([new Uint8Array(bytes)], { type: 'application/pdf' }), `goodnotes-${safeFilename(title)}.pdf`);
 }
 
 export function stampFilename(title: string): string {
-  const safe = title.trim().toLowerCase().replace(/[^\wäöüÄÖÜß-]+/g, '-').replace(/-+/g, '-').slice(0, 60) || 'handschrift';
   const date = new Date().toISOString().slice(0, 10);
-  return `${safe}-${date}`;
+  return `${safeFilename(title)}-${date}`;
+}
+
+/** Dateisystem-freundlich, französisch-sicher: Akzente bleiben, Satzzeichen werden vereinfacht. */
+export function safeFilename(title: string): string {
+  const safe = title
+    .trim()
+    .toLowerCase()
+    .replace(/[–—]/g, '-')
+    .replace(/[’‘]/g, '')
+    .replace(/["“”«»]/g, '')
+    .replace(/[…·]/g, '-')
+    .replace(/[^\w\u00c0-\u024f\u1e00-\u1eff-]+/gu, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 60);
+  return safe || 'handschrift';
 }

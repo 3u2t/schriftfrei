@@ -3,7 +3,7 @@ import { Analytics } from '@vercel/analytics/react';
 import Layout from './components/Layout';
 import SiteBeacon from './components/SiteBeacon';
 import { AppProvider } from './state/AppContext';
-import { currentRoute, type RouteName } from './utils/router';
+import { applyRouteTitle, currentRoute, type RouteName } from './utils/router';
 import LandingPage from './pages/LandingPage';
 import OnboardingPage from './pages/OnboardingPage';
 import EditorPage from './pages/EditorPage';
@@ -26,12 +26,16 @@ function initTheme(): void {
 export default function App() {
   const [route, setRoute] = useState<RouteName>(() => {
     initTheme();
-    return currentRoute();
+    const r = currentRoute();
+    applyRouteTitle(r);
+    return r;
   });
 
   useEffect(() => {
     const onHash = () => {
-      setRoute(currentRoute());
+      const r = currentRoute();
+      setRoute(r);
+      applyRouteTitle(r);
       window.scrollTo({ top: 0 });
     };
     window.addEventListener('hashchange', onHash);

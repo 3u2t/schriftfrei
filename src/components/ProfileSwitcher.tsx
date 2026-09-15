@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Check, ChevronDown, PenLine, Type } from 'lucide-react';
 import FontStripPreview from './FontStripPreview';
 import { Button } from './ui';
-import { type HandwritingProfile } from '../engine/types';
+import { DEFAULT_SETTINGS, type HandwritingProfile } from '../engine/types';
 import { listProfiles } from '../storage/db';
 import { useApp } from '../state/AppContext';
 import { navigate } from '../utils/router';
@@ -37,7 +37,7 @@ export function KindBadge({ profile }: { profile: HandwritingProfile }) {
   );
 }
 
-const PREVIEW_TEXT = 'AaBbCcDdEe 123\nHallo Welt!';
+const PREVIEW_TEXT = 'AaBbCc 123\nÇa roule? Größe prüfen!';
 
 
 export default function ProfileSwitcher() {
@@ -116,7 +116,7 @@ export default function ProfileSwitcher() {
                     )}
                   >
                     <div className="no-select overflow-hidden rounded-xl border border-slate-100 dark:border-slate-800">
-                      <FontStripPreview text={PREVIEW_TEXT} profile={p} maxLines={2} />
+                      <FontStripPreview text={PREVIEW_TEXT} profile={p} settings={{ ...DEFAULT_SETTINGS, ...p.suggestedSettings }} maxLines={2} />
                     </div>
                     <div className="mt-2 flex items-center gap-2">
                       <div className="min-w-0 flex-1">

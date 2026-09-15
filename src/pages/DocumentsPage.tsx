@@ -19,6 +19,7 @@ export default function DocumentsPage() {
   const { profile } = useApp();
   const [docs, setDocs] = useState<TextDocument[]>([]);
   const [busy, setBusy] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   const refresh = async () => setDocs(await listDocuments());
   useEffect(() => {
@@ -38,7 +39,7 @@ export default function DocumentsPage() {
   };
 
   const duplicate = async (d: TextDocument) => {
-    const copy: TextDocument = { ...d, id: uid('doc'), title: `${d.title} (Kopie)`, updatedAt: Date.now(), settings: { ...d.settings } };
+    const copy: TextDocument = { ...d, id: uid('doc'), title: `${d.title} (Kopie)`, updatedAt: Date.now(), settings: { ...d.settings }, customPaperDataUrl: d.customPaperDataUrl };
     await saveDocument(copy);
     await refresh();
   };
@@ -46,6 +47,7 @@ export default function DocumentsPage() {
   const quickExport = async (d: TextDocument) => {
     if (!profile) return;
     setBusy(d.id);
+    setError(null);
     try {
       const s = migrateSettings(d.settings);
       const svgs = buildAllPageSvgs(d.text || ' ', profile, s, d.customPaperDataUrl);
@@ -58,6 +60,8 @@ export default function DocumentsPage() {
         paperColor: s.paperTint,
         format: s.pageFormat,
       });
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Export fehlgeschlagen.');
     } finally {
       setBusy(null);
     }
@@ -69,6 +73,7 @@ export default function DocumentsPage() {
         <h1 className="flex-1 text-xl font-extrabold tracking-tight">Meine Dokumente</h1>
         <Button onClick={newDoc}><Plus size={16} /> Neues Dokument</Button>
       </div>
+      {error && <p className="mb-3 rounded-xl bg-red-50 px-3.5 py-2.5 text-sm text-red-700 dark:bg-red-950 dark:text-red-200">{error}</p>}
       {docs.length === 0 ? (
         <Empty
           title="Noch keine Dokumente"

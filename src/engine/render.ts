@@ -1,6 +1,7 @@
 import type { DocSettings, HandwritingProfile, InkPoint } from './types';
 import { PEN_TYPES, getPageDims } from './types';
 import type { InkLine, LaidPage, LaidTable, PlacedGlyph } from './layout';
+import type { CheckMark } from './layout';
 import { strokeToPath, widthAtPoint, clamp } from './normalize';
 
 export interface RenderOptions {
@@ -137,6 +138,17 @@ export function connectorPathD(prevExit: { x: number; y: number }, g: PlacedGlyp
 
 export function decorationPathD(x0: number, y: number, x1: number, ctx: InkCtx): string {
   return `<line x1="${x0.toFixed(1)}" y1="${y.toFixed(1)}" x2="${x1.toFixed(1)}" y2="${y.toFixed(1)}" stroke="${ctx.ink}" stroke-width="${(ctx.baseW * 0.85).toFixed(2)}" stroke-linecap="round"/>`;
+}
+
+/** Checkbox für Checklisten (- [ ] / - [x]): Kasten + optionaler Haken. */
+export function checkBoxSvg(c: CheckMark, ctx: InkCtx): string {
+  const s = c.size;
+  const w = Math.max(1, ctx.baseW * 0.9).toFixed(2);
+  let out = `<rect x="${c.x.toFixed(1)}" y="${c.y.toFixed(1)}" width="${s.toFixed(1)}" height="${s.toFixed(1)}" fill="none" stroke="${ctx.ink}" stroke-width="${w}"/>`;
+  if (c.done) {
+    out += `<path d="M ${(c.x + s * 0.14).toFixed(1)} ${(c.y + s * 0.55).toFixed(1)} L ${(c.x + s * 0.42).toFixed(1)} ${(c.y + s * 0.78).toFixed(1)} L ${(c.x + s * 0.86).toFixed(1)} ${(c.y + s * 0.24).toFixed(1)}" fill="none" stroke="${ctx.ink}" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round"/>`;
+  }
+  return out;
 }
 
 
@@ -301,6 +313,7 @@ export function renderPageToSvg(
       return;
     }
     inkParts.push(...renderLineInk(line, ctx));
+    if (line.check) inkParts.push(checkBoxSvg(line.check, ctx));
   });
 
   parts.push(`<g opacity="${ctx.opacity}">${inkParts.join('')}</g>`);

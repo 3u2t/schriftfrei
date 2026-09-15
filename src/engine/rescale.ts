@@ -28,10 +28,10 @@ export function scaleCharMap(glyphs: CharMap, f: number): CharMap {
 }
 
 
-const XHEIGHT_CHARS = new Set('acemnorsuvwxz'.split(''));
+const XHEIGHT_CHARS = new Set('acemnorsuvwxzàâäéèêëîïôùûüÿæœç'.split(''));
 
 
-const FIXED_CHARS = new Set(['.', ',', '!', '?', ':', ';', '-', '_', '(', ')', '/', '+', '=', '€', '%', '&', "'", '"', '…', '·', '–', '—']);
+const FIXED_CHARS = new Set(['.', ',', '!', '?', ':', ';', '-', '_', '(', ')', '/', '+', '=', '€', '%', '&', "'", '"', '…', '·', '–', '—', '’', '‘', '“', '”', '«', '»']);
 
 
 export function normalizeProportions(glyphs: CharMap): { glyphs: CharMap; matched: number } {

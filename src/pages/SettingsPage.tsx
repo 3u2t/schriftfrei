@@ -22,6 +22,7 @@ export default function SettingsPage() {
   const [profiles, setProfiles] = useState<HandwritingProfile[]>([]);
   const [storage, setStorage] = useState<{ usage: number; quota: number } | null>(null);
   const [confirmWipe, setConfirmWipe] = useState(false);
+  const [confirmRemoveId, setConfirmRemoveId] = useState<string | null>(null);
   const [transferMsg, setTransferMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [importing, setImporting] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -40,6 +41,11 @@ export default function SettingsPage() {
   };
 
   const remove = async (p: HandwritingProfile) => {
+    if (confirmRemoveId !== p.id) {
+      setConfirmRemoveId(p.id);
+      return;
+    }
+    setConfirmRemoveId(null);
     await deleteProfile(p.id);
     if (profile?.id === p.id) await setActiveProfile(null);
     await reloadProfile();
@@ -54,12 +60,15 @@ export default function SettingsPage() {
       const lower = f.name.toLowerCase();
       const isFont = /\.(ttf|otf|woff2?)$/.test(lower);
       if (isFont) {
-        const { profile, imported, total } = await fontFileToProfile(f);
+        const { profile, imported, total, coreMissing } = await fontFileToProfile(f);
         await saveProfile(profile);
         await setActiveProfile(profile);
         await reloadProfile();
         await refresh();
-        setTransferMsg({ ok: true, text: `„${profile.name}" importiert: ${imported} von ${total} Zeichen – jetzt als eigene Schrift aktiv.` });
+        const core = coreMissing.length === 0
+          ? ' Deutsch & Französisch komplett.'
+          : ` Hinweis: Es fehlen u. a. ${coreMissing.slice(0, 10).join(' ')}.`;
+        setTransferMsg({ ok: true, text: `„${profile.name}" importiert: ${imported} von ${total} Zeichen.${core} Jetzt als eigene Schrift aktiv.` });
       } else {
         const text = await f.text();
         const parsed = parseProfileFile(text);
@@ -87,7 +96,13 @@ export default function SettingsPage() {
       setConfirmWipe(true);
       return;
     }
-    await clearAllData();
+    try {
+      await clearAllData();
+    } catch (e) {
+      setTransferMsg({ ok: false, text: e instanceof Error ? e.message : 'Löschen fehlgeschlagen.' });
+      setConfirmWipe(false);
+      return;
+    }
     try {
       localStorage.removeItem('schriftfrei-theme');
     } catch {
@@ -118,7 +133,7 @@ export default function SettingsPage() {
               <button onClick={() => downloadProfile(p)} className="flex h-10 w-10 items-center justify-center rounded-xl text-slate-500 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800" aria-label={`Profil ${p.name} als Datei exportieren`} title="Als Datei exportieren (.schriftfrei.json)">
                 <Download size={16} />
               </button>
-              <button onClick={() => void remove(p)} className="flex h-10 w-10 items-center justify-center rounded-xl text-red-500 hover:bg-red-50 dark:hover:bg-red-950" aria-label={`Profil ${p.name} löschen`}>
+              <button onClick={() => void remove(p)} className={`flex h-10 w-10 items-center justify-center rounded-xl ${confirmRemoveId === p.id ? 'bg-red-600 text-white' : 'text-red-500 hover:bg-red-50 dark:hover:bg-red-950'}`} aria-label={confirmRemoveId === p.id ? `Wirklich löschen? Erneut tippen: ${p.name}` : `Profil ${p.name} löschen`} title={confirmRemoveId === p.id ? 'Wirklich löschen? Erneut tippen.' : 'Profil löschen'}>
                 <Trash2 size={16} />
               </button>
             </div>

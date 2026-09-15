@@ -35,6 +35,15 @@ export interface Decoration {
   y: number;
   boxH: number;
   kind: 'underline' | 'strike';
+  /** Kumulierter Wortzwischenraum vor der Marke (für Blocksatz-Verschiebung). */
+  preGap?: number;
+}
+
+export interface CheckMark {
+  done: boolean;
+  x: number;
+  y: number;
+  size: number;
 }
 
 export interface LaidLine extends InkLine {
@@ -42,6 +51,7 @@ export interface LaidLine extends InkLine {
   lineH: number;
   rule?: boolean;
   table?: LaidTable;
+  check?: CheckMark;
 }
 
 
@@ -76,6 +86,9 @@ export interface LaidPage {
 type DecoGlyph = PlacedGlyph & { deco?: 'underline' | 'strike' };
 
 const HEADING_SCALE: Record<number, number> = { 1: 1.6, 2: 1.34, 3: 1.16 };
+
+/** Lückenbreite (___) pro Unterstrich, in boxH-Einheiten. */
+const GAP_UNIT = 0.42;
 
 function glyphFor(
   profile: HandwritingProfile,
@@ -174,15 +187,38 @@ export function layoutPages(
   };
 
   const applyAlignment = (line: LaidLine, isLastOfPara: boolean) => {
+    if (line.rule) return;
     const glyphs = line.glyphs;
-    if (glyphs.length === 0 || line.rule) return;
+    // Lücken-Marken kommen hier noch unverschoben an (flushCur) und werden
+    // mitgeschoben – danach erst die Glyphen-Dekos aus finalen Positionen.
+    const gaps = line.decorations;
+    const shiftGaps = (dx: number) => {
+      if (dx !== 0) {
+        for (const d of gaps) {
+          d.x0 += dx;
+          d.x1 += dx;
+        }
+      }
+    };
+    if (glyphs.length === 0) {
+      line.decorations = [...gaps, ...collectDecorations(glyphs)];
+      return;
+    }
+    let minX = glyphs[0].x;
+    let maxX = glyphs[glyphs.length - 1].x + glyphs[glyphs.length - 1].widthPx;
+    for (const d of gaps) {
+      minX = Math.min(minX, d.x0);
+      maxX = Math.max(maxX, d.x1);
+    }
+    const contentW = maxX - minX;
     if (settings.align === 'center' || settings.align === 'right') {
-      const contentW = glyphs[glyphs.length - 1].x + glyphs[glyphs.length - 1].widthPx - glyphs[0].x;
       const off = (maxW - contentW) * (settings.align === 'center' ? 0.5 : 1);
-      if (off > 0) for (const g of glyphs) g.x += off;
+      if (off > 0) {
+        for (const g of glyphs) g.x += off;
+        shiftGaps(off);
+      }
     } else if (settings.align === 'justify' && !isLastOfPara) {
       const totalGap = glyphs.reduce((n, g) => n + (g.gapAfter || 0), 0);
-      const contentW = glyphs[glyphs.length - 1].x + glyphs[glyphs.length - 1].widthPx - glyphs[0].x;
       const extra = maxW - contentW;
       if (totalGap > 0.5 && extra > 0 && contentW > maxW * 0.45) {
         let shift = 0;
@@ -190,9 +226,14 @@ export function layoutPages(
           g.x += shift;
           if (g.gapAfter) shift += (extra * g.gapAfter) / totalGap;
         }
+        for (const d of gaps) {
+          const s = ((d.preGap || 0) * extra) / totalGap;
+          d.x0 += s;
+          d.x1 += s;
+        }
       }
     }
-    line.decorations = collectDecorations(glyphs);
+    line.decorations = [...gaps, ...collectDecorations(glyphs)];
   };
 
   const placeWord = (
@@ -243,6 +284,20 @@ export function layoutPages(
     return x;
   };
 
+  /** Lücke (___) platzieren: rückt vor, merkt Schreiblinie für den Export. */
+  const placeGap = (
+    n: number,
+    boxH: number,
+    startX: number,
+    y0: number,
+    out: Decoration[],
+    preGap: number,
+  ): number => {
+    const w = n * GAP_UNIT * boxH;
+    out.push({ x0: startX, x1: startX + w, y: y0, boxH, kind: 'underline', preGap });
+    return startX + w;
+  };
+
 
   const layoutParagraph = (segs: TextSeg[], boxH: number, indent: number, forceBold: boolean): void => {
     const lineH = boxH * settings.lineHeight;
@@ -251,6 +306,7 @@ export function layoutPages(
     let cur: PlacedGlyph[] = [];
     let curW = 0;
     let lineIndent = indent;
+    let pendingGaps: Decoration[] = [];
 
     const startLineIfNeeded = () => {
       if (cur.length === 0) {
@@ -260,7 +316,7 @@ export function layoutPages(
     };
 
     const flushCur = () => {
-      const line: LaidLine = { glyphs: cur, baselineY: yCursor, lineH, decorations: [] };
+      const line: LaidLine = { glyphs: cur, baselineY: yCursor, lineH, decorations: pendingGaps };
       lines.push(line);
       paraLines.push(line);
       const minSteps = Math.ceil((lineH * 0.85) / (snapActive ? ruleStep : 1));
@@ -268,10 +324,15 @@ export function layoutPages(
       cur = [];
       curW = 0;
       lineIndent = 0;
+      pendingGaps = [];
     };
 
-    const tokens: { text: string; isSpace: boolean; seg: TextSeg }[] = [];
+    const tokens: { text: string; isSpace: boolean; seg: TextSeg; gap?: number }[] = [];
     for (const seg of segs) {
+      if (seg.gap) {
+        tokens.push({ text: '', isSpace: false, seg, gap: seg.gap });
+        continue;
+      }
       for (const p of seg.text.split(/(\s+)/).filter((t) => t.length > 0)) {
         tokens.push({ text: p, isSpace: /^\s+$/.test(p), seg });
       }
@@ -283,6 +344,16 @@ export function layoutPages(
           curW += spaceW;
           cur[cur.length - 1].gapAfter += spaceW;
         }
+        continue;
+      }
+      if (tok.gap) {
+        startLineIfNeeded();
+        const gw = tok.gap * GAP_UNIT * boxH;
+        if (curW + gw > maxW && (cur.length > 0 || pendingGaps.length > 0)) flushCur();
+        startLineIfNeeded();
+        const gy = yCursor;
+        const preGap = cur.reduce((n, g) => n + (g.gapAfter || 0), 0);
+        curW = placeGap(tok.gap, boxH, margin + curW, gy, pendingGaps, preGap) - margin;
         continue;
       }
       const flags = {
@@ -323,7 +394,7 @@ export function layoutPages(
         }
       }
     }
-    if (cur.length > 0) flushCur();
+    if (cur.length > 0 || pendingGaps.length > 0) flushCur();
 
 
     paraLines.forEach((line, idx) => applyAlignment(line, idx === paraLines.length - 1));
@@ -339,9 +410,13 @@ export function layoutPages(
     const padTop = boxH * 0.28;
     const spaceW = spaceWFor(boxH);
 
-    const tokenizeCell = (segs: TextSeg[]): { text: string; isSpace: boolean; seg: TextSeg }[] => {
-      const out: { text: string; isSpace: boolean; seg: TextSeg }[] = [];
+    const tokenizeCell = (segs: TextSeg[]): { text: string; isSpace: boolean; seg: TextSeg; gap?: number }[] => {
+      const out: { text: string; isSpace: boolean; seg: TextSeg; gap?: number }[] = [];
       for (const seg of segs) {
+        if (seg.gap) {
+          out.push({ text: '', isSpace: false, seg, gap: seg.gap });
+          continue;
+        }
         for (const p of seg.text.split(/(\s+)/).filter((t) => t.length > 0)) {
           out.push({ text: p, isSpace: /^\s+$/.test(p), seg });
         }
@@ -356,22 +431,27 @@ export function layoutPages(
     });
 
 
-    const layoutCell = (segs: TextSeg[], maxLineW: number): { lines: PlacedGlyph[][]; width: number } => {
-      const out: PlacedGlyph[][] = [];
+    const layoutCell = (segs: TextSeg[], maxLineW: number): { lines: { glyphs: PlacedGlyph[]; gaps: Decoration[] }[]; width: number } => {
+      const out: { glyphs: PlacedGlyph[]; gaps: Decoration[] }[] = [];
       let cur: PlacedGlyph[] = [];
       let curW = 0;
       let maxSeen = 0;
+      let curGaps: Decoration[] = [];
       // Toleranz gegen Fließkomma-Rundung an der exakten Spaltenbreite:
       // Die Spalte wurde aus der natürlichen Breite vermessen, beim finalen
       // Layout darf ein Wort an der Grenze nicht in die nächste Zeile rutschen.
       const EPS = Math.max(1, boxH * 0.04);
       const flush = () => {
-        if (cur.length > 0) {
-          const last = cur[cur.length - 1];
-          maxSeen = Math.max(maxSeen, last.x + last.widthPx);
-          out.push(cur);
+        if (cur.length > 0 || curGaps.length > 0) {
+          if (cur.length > 0) {
+            const last = cur[cur.length - 1];
+            maxSeen = Math.max(maxSeen, last.x + last.widthPx);
+          }
+          for (const gd of curGaps) maxSeen = Math.max(maxSeen, gd.x1);
+          out.push({ glyphs: cur, gaps: curGaps });
           cur = [];
           curW = 0;
+          curGaps = [];
         }
       };
       for (const tok of tokenizeCell(segs)) {
@@ -380,6 +460,13 @@ export function layoutPages(
             curW += spaceW;
             cur[cur.length - 1].gapAfter += spaceW;
           }
+          continue;
+        }
+        if (tok.gap) {
+          const gw = tok.gap * GAP_UNIT * boxH;
+          if (curW + gw > maxLineW + EPS && (cur.length > 0 || curGaps.length > 0)) flush();
+          const preGap = cur.reduce((n, g) => n + (g.gapAfter || 0), 0);
+          curW = placeGap(tok.gap, boxH, curW, 0, curGaps, preGap);
           continue;
         }
         const flags = flagsOf(tok.seg);
@@ -443,7 +530,7 @@ export function layoutPages(
     }
 
 
-    const finalRows: PlacedGlyph[][][][] = allRows.map((rowCells) =>
+    const finalRows: { glyphs: PlacedGlyph[]; gaps: Decoration[] }[][][] = allRows.map((rowCells) =>
       rowCells.map((cell, jc) => layoutCell(cell, colW[jc]).lines),
     );
     const rowH = finalRows.map((fr) => {
@@ -463,11 +550,11 @@ export function layoutPages(
     }
     const tableW = accX - margin;
 
-    const positionRow = (frow: PlacedGlyph[][][], yTop: number, isHeader: boolean): LaidTableCell[] => {
+    const positionRow = (frow: { glyphs: PlacedGlyph[]; gaps: Decoration[] }[][], yTop: number, isHeader: boolean): LaidTableCell[] => {
       return frow.map((cellLines, jc) => {
         const avail = colW[jc];
         const a = aligns[jc] ?? 'left';
-        const linesOut: InkLine[] = cellLines.map((glyphs, li) => {
+        const linesOut: InkLine[] = cellLines.map(({ glyphs, gaps }, li) => {
           const wLine = glyphs.length > 0 ? glyphs[glyphs.length - 1].x + glyphs[glyphs.length - 1].widthPx - glyphs[0].x : 0;
           let off = 0;
           if (a === 'center') off = (avail - wLine) / 2;
@@ -480,7 +567,13 @@ export function layoutPages(
             y: g.y + dy,
             bold: isHeader ? true : g.bold,
           }));
-          return { glyphs: moved, decorations: collectDecorations(moved) };
+          const movedGaps = gaps.map((gd) => ({
+            ...gd,
+            x0: colContentX[jc] + gd.x0 + off,
+            x1: colContentX[jc] + gd.x1 + off,
+            y: gd.y + dy,
+          }));
+          return { glyphs: moved, decorations: [...movedGaps, ...collectDecorations(moved)] };
         });
         return { lines: linesOut };
       });
@@ -559,6 +652,19 @@ export function layoutPages(
         flags: { bold: false, italic: false, strike: false, underline: false },
       };
       layoutParagraph([prefixSeg, ...block.segs], baseBoxH, baseBoxH * 0.55, false);
+      continue;
+    }
+    if (block.kind === 'check') {
+      const before = lines.length;
+      layoutParagraph(block.segs, baseBoxH, baseBoxH * 0.95, false);
+      if (lines.length > before) {
+        const first = lines[before];
+        if (first.glyphs.length > 0) {
+          const g0 = first.glyphs[0];
+          const size = baseBoxH * 0.52;
+          first.check = { done: block.done, x: g0.x - size - baseBoxH * 0.18, y: g0.y + baseBoxH * 0.28, size };
+        }
+      }
       continue;
     }
     if (block.kind === 'table') {

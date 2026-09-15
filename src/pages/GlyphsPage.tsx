@@ -9,7 +9,7 @@ import { demoGlyphFor } from '../engine/demoGenerator';
 import { normalizeProportions, scaleCharMap } from '../engine/rescale';
 import { downloadTtf } from '../export/fontExport';
 import type { GlyphVariant, InkStroke, PointerMode } from '../engine/types';
-import { ALL_TRAIN_CHARS, DIGITS, LOWER, SIGNS, UPPER } from '../training/charset';
+import { ALL_TRAIN_CHARS, DIGITS, EXTENDED_LATIN, FRENCH, LOWER, SIGNS, UPPER } from '../training/charset';
 import { deleteProfile, saveProfile } from '../storage/db';
 import { useApp } from '../state/AppContext';
 import { navigate } from '../utils/router';
@@ -77,8 +77,10 @@ function MiniGlyph({ variant, missing }: { variant: GlyphVariant; missing?: bool
 const GROUPS: { title: string; chars: string[] }[] = [
   { title: 'Kleinbuchstaben', chars: LOWER },
   { title: 'Großbuchstaben', chars: UPPER },
+  { title: 'Französisch', chars: FRENCH },
   { title: 'Zahlen', chars: DIGITS },
   { title: 'Zeichen', chars: SIGNS },
+  { title: 'Weitere lateinische Buchstaben', chars: EXTENDED_LATIN },
 ];
 
 export default function GlyphsPage() {

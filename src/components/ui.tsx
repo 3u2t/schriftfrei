@@ -4,10 +4,12 @@ import { cn } from '../utils/cn';
 export function Button({
   className,
   variant = 'primary',
+  type = 'button',
   ...props
 }: ButtonHTMLAttributes<HTMLButtonElement> & { variant?: 'primary' | 'secondary' | 'ghost' | 'danger' }) {
   return (
     <button
+      type={type}
       {...props}
       className={cn(
         'inline-flex min-h-[44px] items-center justify-center gap-2 rounded-xl px-5 py-2.5 text-sm font-semibold transition active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50',
@@ -30,9 +32,10 @@ export function Card({ className, children }: { className?: string; children: Re
 }
 
 export function ProgressBar({ value }: { value: number }) {
+  const safe = Number.isFinite(value) ? Math.min(100, Math.max(0, value)) : 0;
   return (
-    <div className="h-2 w-full overflow-hidden rounded-full bg-slate-100 dark:bg-slate-700" role="progressbar" aria-valuenow={Math.round(value)} aria-valuemin={0} aria-valuemax={100}>
-      <div className="h-full rounded-full bg-slate-900 transition-all dark:bg-white" style={{ width: `${Math.min(100, Math.max(0, value))}%` }} />
+    <div className="h-2 w-full overflow-hidden rounded-full bg-slate-100 dark:bg-slate-700" role="progressbar" aria-valuenow={Math.round(safe)} aria-valuemin={0} aria-valuemax={100}>
+      <div className="h-full rounded-full bg-slate-900 transition-all dark:bg-white" style={{ width: `${safe}%` }} />
     </div>
   );
 }
@@ -53,7 +56,7 @@ export function Slider(props: InputHTMLAttributes<HTMLInputElement> & { label: s
 export function Empty({ title, hint, action }: { title: string; hint: string; action?: ReactNode }) {
   return (
     <div className="flex flex-col items-center gap-2 rounded-2xl border border-dashed border-slate-300 px-6 py-12 text-center dark:border-slate-600">
-      <p className="font-semibold text-slate-800 dark:text-slate-100">{title}</p>
+      <h2 className="font-semibold text-slate-800 dark:text-slate-100">{title}</h2>
       <p className="max-w-sm text-sm text-slate-500 dark:text-slate-400">{hint}</p>
       {action && <div className="mt-3">{action}</div>}
     </div>

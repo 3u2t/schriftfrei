@@ -8,6 +8,8 @@ export interface SpanFlags {
 export interface TextSeg {
   text: string;
   flags: SpanFlags;
+  /** Lücke (Arbeitsblatt): Breite in Unterstrich-Einheiten, z. B. ___ → 3. */
+  gap?: number;
 }
 
 export type ColumnAlign = 'left' | 'center' | 'right';
@@ -17,6 +19,7 @@ export type Block =
   | { kind: 'heading'; level: 1 | 2 | 3; segs: TextSeg[] }
   | { kind: 'bullet'; segs: TextSeg[] }
   | { kind: 'ordered'; index: number; segs: TextSeg[] }
+  | { kind: 'check'; done: boolean; segs: TextSeg[] }
   | { kind: 'table'; header: TextSeg[][]; aligns: ColumnAlign[]; rows: TextSeg[][][] }
   | { kind: 'rule' }
   | { kind: 'blank' };
@@ -42,14 +45,27 @@ export function parseInline(srcIn: string): TextSeg[] {
   };
   let i = 0;
   while (i < src.length) {
-    if (src.startsWith('**', i)) {
+    // Unterstriche zuerst: ___ (3+) = Lücke für Arbeitsblätter, __ = unterstrichen, _ = Zeichen.
+    if (src[i] === '_') {
+      let j = i;
+      while (j < src.length && src[j] === '_') j++;
+      const run = j - i;
+      if (run >= 3) {
+        push();
+        segs.push({ text: '', flags: { ...flags }, gap: run });
+        i = j;
+      } else if (run === 2) {
+        toggle('underline');
+        i = j;
+      } else {
+        buf += '_';
+        i += 1;
+      }
+    } else if (src.startsWith('**', i)) {
       toggle('bold');
       i += 2;
     } else if (src.startsWith('~~', i)) {
       toggle('strike');
-      i += 2;
-    } else if (src.startsWith('__', i)) {
-      toggle('underline');
       i += 2;
     } else if (src[i] === '*') {
       toggle('italic');
@@ -155,7 +171,12 @@ export function parseMarkdown(text: string): Block[] {
     }
     const bullet = line.match(/^\s*[-*•]\s+(.*)$/);
     if (bullet) {
-      blocks.push({ kind: 'bullet', segs: parseInline(bullet[1]) });
+      const check = bullet[1].match(/^\[([ xX])\]\s+(.*)$/);
+      if (check) {
+        blocks.push({ kind: 'check', done: check[1].toLowerCase() === 'x', segs: parseInline(check[2]) });
+      } else {
+        blocks.push({ kind: 'bullet', segs: parseInline(bullet[1]) });
+      }
       resetList();
       continue;
     }

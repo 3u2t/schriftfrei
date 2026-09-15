@@ -54,7 +54,7 @@ export default function OnboardingPage() {
   const doneChars = useMemo(() => new Set(Object.keys(glyphs)), [glyphs]);
   const coverage = coverageFor(doneChars, sentencesDone.length, TRAIN_SENTENCES.length);
   const totalTargets = useMemo(() => {
-    const chars = ONBOARDING_STEPS.slice(0, 3).reduce((n, s) => n + s.chars.length * variants, 0);
+    const chars = ONBOARDING_STEPS.filter((s) => s.chars.length > 0).reduce((n, s) => n + s.chars.length * variants, 0);
     return chars + TRAIN_SENTENCES.length;
   }, [variants]);
   const doneTargets = Object.values(glyphs).reduce((n, v) => n + v.length, 0) + sentencesDone.length;
@@ -78,7 +78,7 @@ export default function OnboardingPage() {
     setGlyphs((g) => ({ ...g, [target.ch]: [...(g[target.ch] ?? []), variant] }));
     if (qi + 1 >= queue.length) {
 
-      setStepIdx((s) => Math.min(3, s + 1));
+      setStepIdx((s) => Math.min(ONBOARDING_STEPS.length - 1, s + 1));
       setQi(0);
     } else {
       setQi((i) => i + 1);
@@ -90,7 +90,7 @@ export default function OnboardingPage() {
     setError(null);
     if (!target) return;
     if (qi + 1 >= queue.length) {
-      setStepIdx((s) => Math.min(3, s + 1));
+      setStepIdx((s) => Math.min(ONBOARDING_STEPS.length - 1, s + 1));
       setQi(0);
     } else {
       setQi((i) => i + 1);
@@ -106,7 +106,7 @@ export default function OnboardingPage() {
         setSamples((s) => s.slice(0, -1));
         setSentencesDone((d) => d.slice(0, -1));
       } else {
-        setStepIdx(2);
+        setStepIdx(ONBOARDING_STEPS.findIndex((s) => s.id === 'sentences') - 1);
       }
     } else {
       backGlyph();
@@ -260,7 +260,7 @@ export default function OnboardingPage() {
     <div className="mx-auto max-w-2xl anim-fade-up no-select" onContextMenu={(e) => e.preventDefault()}>
       <div className="mb-4">
         <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
-          Schritt {stepIdx + 1} von 4 · {step.title}
+          Schritt {stepIdx + 1} von {ONBOARDING_STEPS.length} · {step.title}
         </p>
         <h1 className="mt-1 text-xl font-extrabold tracking-tight">
           {step.id === 'sentences' ? 'Schreibe den Satz ab' : target ? (
