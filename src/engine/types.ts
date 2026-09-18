@@ -113,7 +113,7 @@ export const DEFAULT_SETTINGS: DocSettings = {
   letterGap: 0.06,
   wordGap: 1.0,
   strokeWidth: 1.4,
-  naturalness: 0,
+  naturalness: 70,
   randomness: 60,
   slant: 0,
   paper: 'blank',
@@ -130,7 +130,7 @@ export const DEFAULT_SETTINGS: DocSettings = {
 
 
 export function migrateSettings(s: Partial<DocSettings>): DocSettings {
-  return { ...DEFAULT_SETTINGS, ...s, naturalness: 0 };
+  return { ...DEFAULT_SETTINGS, ...s };
 }
 
 export const INK_COLORS: { label: string; value: string }[] = [

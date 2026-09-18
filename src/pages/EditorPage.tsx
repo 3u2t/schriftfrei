@@ -72,7 +72,8 @@ export default function EditorPage() {
           return;
         }
       }
-      const fresh: TextDocument = { id: uid('doc'), title: 'Unbenanntes Dokument', text: '', settings: applyPending(DEFAULT_SETTINGS), updatedAt: Date.now() };
+      const fresh: TextDocument = { id: uid('doc'), title: 'Unbenanntes Dokument', text: SAMPLE, settings: applyPending(DEFAULT_SETTINGS), updatedAt: Date.now() };
+      setText(SAMPLE);
       setDoc(fresh);
       await kvSet('currentDocId', fresh.id);
     })();
@@ -93,7 +94,7 @@ export default function EditorPage() {
 
   }, [text, title, settings, customPaper, transparent]);
 
-  const pages = useMemo(() => (profile ? layoutPages(text || SAMPLE, profile, settings) : []), [text, profile, settings]);
+  const pages = useMemo(() => (profile ? layoutPages(text || ' ', profile, settings) : []), [text, profile, settings]);
   const total = pages.length;
   const safePage = clampPageIndex(page, total);
   const missing = useMemo(() => countMissingGlyphs(pages), [pages]);
@@ -199,7 +200,7 @@ export default function EditorPage() {
 
   const allSvgs = (): string[] => {
     if (!profile) return [];
-    return buildAllPageSvgs(text || SAMPLE, profile, { ...settings, transparentBg: transparent }, customPaper);
+    return buildAllPageSvgs(text, profile, { ...settings, transparentBg: transparent }, customPaper);
   };
 
   const rasterOpts = (q: ExportQualityId) => {
@@ -238,7 +239,7 @@ export default function EditorPage() {
     );
   }
 
-  const effectiveText = text || SAMPLE;
+  const effectiveText = text;
 
   return (
     <div className="anim-fade-up">
@@ -405,6 +406,7 @@ export default function EditorPage() {
                 <Slider label="Wortabstand" valueText={settings.wordGap.toFixed(2)} min={0.4} max={2} step={0.05} value={settings.wordGap} onChange={(e) => set('wordGap', Number(e.target.value))} />
                 <Slider label="Strichstärke" valueText={settings.strokeWidth.toFixed(1)} min={0.5} max={3} step={0.1} value={settings.strokeWidth} onChange={(e) => set('strokeWidth', Number(e.target.value))} />
                 <Slider label="Neigung" valueText={`${settings.slant.toFixed(0)}°`} min={-15} max={25} step={1} value={settings.slant} onChange={(e) => set('slant', Number(e.target.value))} />
+                <Slider label="Natürlichkeit" valueText={`${Math.round(settings.naturalness)} %`} min={0} max={100} step={1} value={settings.naturalness} onChange={(e) => set('naturalness', Number(e.target.value))} />
                 <Slider label="Zufälligkeit" valueText={`${Math.round(settings.randomness)} %`} min={0} max={100} step={1} value={settings.randomness} onChange={(e) => set('randomness', Number(e.target.value))} />
               </div>
               <Button variant="secondary" onClick={() => set('seed', Math.floor(Math.random() * 1e9))} className="w-full">
@@ -537,7 +539,7 @@ export default function EditorPage() {
               {busy === 'goodnotes' ? 'Wird erstellt …' : '📓 Für GoodNotes exportieren (Vektor-PDF)'}
             </Button>
             <p className="mt-2 text-xs text-slate-400">
-              Vektor-PDF: bleibt beim Zoomen scharf, kleine Datei. Per „Freigeben → In GoodNotes öffnen" importieren – erscheint als Notizbuch-Seiten, denen du in GoodNotes Neues hinzufügen kannst. Hinweis: Importiertes bleibt Hintergrund – zum Radieren einzelner Striche nutze GoodNotes-eigene Stifte bzw. zum echten Bearbeiten die Schrift (.otf) als Textfeld.
+              Vektor-PDF: bleibt beim Zoomen scharf, kleine Datei. Per „Freigeben → In GoodNotes öffnen" importieren – erscheint als Notizbuch-Seiten, denen du in GoodNotes Neues hinzufügen kannst. Hinweis: Importiertes bleibt Hintergrund – zum Radieren einzelner Striche nutze GoodNotes-eigene Stifte bzw. zum echten Bearbeiten die Schrift (.ttf) als Textfeld.
             </p>
             {exportError && <p className="mt-2 rounded-xl bg-red-50 px-3.5 py-2.5 text-sm text-red-700 dark:bg-red-950 dark:text-red-200">{exportError}</p>}
             <Button variant="ghost" onClick={() => setShowExport(false)} className="mt-2 w-full">Schließen</Button>

@@ -1,8 +1,11 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Check, Download, GraduationCap, PenLine, ShieldCheck, Sparkles, TabletSmartphone, Type } from 'lucide-react';
 import { Button, Card } from '../components/ui';
+import FontStripPreview from '../components/FontStripPreview';
 import { navigate } from '../utils/router';
 import { createDemoProfile } from '../engine/demoGenerator';
+import { createStyleProfile } from '../fonts/styles';
+import { DEFAULT_SETTINGS } from '../engine/types';
 import { saveProfile } from '../storage/db';
 import { useApp } from '../state/AppContext';
 
@@ -11,7 +14,7 @@ const BENEFITS = [
   { icon: PenLine, text: 'Deine eigene Handschrift, trainiert von dir' },
   { icon: TabletSmartphone, text: 'Funktioniert auf iPad mit Apple Pencil' },
   { icon: Type, text: 'Überschriften, Listen, Fett & Kursiv, Blocksatz' },
-  { icon: Download, text: 'PDF & GoodNotes (Vektor), PNG/JPG/SVG – und als Schriftdatei (.otf)' },
+  { icon: Download, text: 'PDF & GoodNotes (Vektor), PNG/JPG/SVG – und als Schriftdatei (.ttf)' },
   { icon: GraduationCap, text: 'Ideal für Schule: Lückentexte, Checklisten & Tabellen aus ChatGPT' },
   { icon: Sparkles, text: 'Stiftfarben, Stifttypen & Papierformate wie bei Profi-Tools' },
 ];
@@ -19,6 +22,7 @@ const BENEFITS = [
 export default function LandingPage() {
   const { setActiveProfile } = useApp();
   const [busy, setBusy] = useState(false);
+  const previewProfile = useMemo(() => createStyleProfile('klassisch'), []);
 
   const useDemo = async () => {
     setBusy(true);
@@ -62,6 +66,16 @@ export default function LandingPage() {
             </li>
           ))}
         </ul>
+        <div className="mx-auto mt-6 max-w-2xl overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-slate-200/70 dark:bg-slate-900 dark:ring-slate-800">
+          <FontStripPreview
+            text={'Hallo Welt! Franz jagt im Taxi quer durch Bayern.'}
+            profile={previewProfile}
+            settings={{ ...DEFAULT_SETTINGS, naturalness: 70, randomness: 65 }}
+            maxLines={2}
+            className="p-4"
+          />
+          <p className="border-t border-slate-100 px-4 py-2 text-xs text-slate-400 dark:border-slate-800">Echte Vorschau aus der Engine – so sieht „Klassisch“ aus.</p>
+        </div>
       </section>
 
       <section className="mx-auto grid max-w-5xl gap-4 md:grid-cols-3">

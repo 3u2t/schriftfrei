@@ -305,7 +305,7 @@ export const DEMO_CHARSET: string[] = Object.keys(SKELETONS);
 
 export function createDemoProfile(): HandwritingProfile {
   const glyphs: CharMap = {};
-  for (const ch of DEMO_CHARSET) glyphs[ch] = [demoGlyphFor(ch)];
+  for (const ch of DEMO_CHARSET) glyphs[ch] = [demoGlyphFor(ch, 11), demoGlyphFor(ch, 87), demoGlyphFor(ch, 163)];
 
   const now = Date.now();
   return {
@@ -317,7 +317,7 @@ export function createDemoProfile(): HandwritingProfile {
     glyphs,
     metrics: { ...defaultMetrics(), slant: 7, baselineWobble: 0.4, sizeVariance: 0.35 },
     coverage: 100,
-    variantsPerChar: 1,
+    variantsPerChar: 3,
     sentenceSamples: [],
     sentencesDone: [],
   };

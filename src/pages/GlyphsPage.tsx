@@ -90,7 +90,7 @@ export default function GlyphsPage() {
   const [canvasKey, setCanvasKey] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [confirmReset, setConfirmReset] = useState(false);
-  const [pointerMode, setPointerMode] = useState<PointerMode>('stylus');
+  const [pointerMode, setPointerMode] = useState<PointerMode>('all');
   const [rescale, setRescale] = useState(1);
   const [propMsg, setPropMsg] = useState<string | null>(null);
   const apiRef = useRef<InkCanvasHandle | null>(null);
@@ -170,9 +170,13 @@ export default function GlyphsPage() {
           <p className="text-xs text-slate-400">{profile.name} · {covered} von {ALL_TRAIN_CHARS.length} Zeichen · {profile.coverage} % Profil</p>
         </div>
         <Button variant="secondary" onClick={() => navigate('onboarding')}><RotateCcw size={15} /> Training wiederholen</Button>
-        <Button variant="secondary" onClick={() => downloadTtf(profile)} title="Deine Handschrift als installierbare Schriftdatei laden (für Word, GoodNotes, iPad …)"><FileType size={15} /> Als Schrift laden (.otf)</Button>
+        <Button variant="secondary" onClick={() => downloadTtf(profile)} title="Deine Handschrift als installierbare Schriftdatei laden (für Word, GoodNotes, iPad …)"><FileType size={15} /> Als Schrift laden (.ttf)</Button>
         <Button variant="secondary" onClick={() => navigate('editor')}><PenLine size={15} /> Zum Editor</Button>
       </div>
+      <p className="mb-4 rounded-xl bg-slate-50 px-3.5 py-2.5 text-xs text-slate-500 dark:bg-slate-800 dark:text-slate-400">
+        Für ein anderes Gerät / die Online-Domain: bitte unter Einstellungen → Sichern &amp; Übertragen als <b>.schriftfrei.json</b> exportieren und dort importieren.
+        Die .ttf-Datei ist nur zur Installation in Word &amp; Co. – kein 1:1-Profil-Backup (nur 1 Variante, ohne Druckdynamik).
+      </p>
       <div className="mb-4"><ProgressBar value={profile.coverage} /></div>
 
       {GROUPS.map((g) => (

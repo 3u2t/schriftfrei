@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react';
-import { FileText, Home, PenLine, Settings, Type } from 'lucide-react';
+import { Brush, FileText, Home, PenLine, Settings, Type } from 'lucide-react';
 import { cn } from '../utils/cn';
 import { navigate, currentRoute } from '../utils/router';
 
 const ITEMS = [
   { route: 'home', label: 'Start', icon: Home },
   { route: 'editor', label: 'Erstellen', icon: PenLine },
+  { route: 'glyphs', label: 'Schrift', icon: Brush },
   { route: 'fonts', label: 'Schriften', icon: Type },
   { route: 'documents', label: 'Dokumente', icon: FileText },
   { route: 'settings', label: 'Mehr', icon: Settings },
@@ -70,9 +71,9 @@ export default function Layout({ children }: { children: React.ReactNode }) {
 
       {}
       <nav className="fixed inset-x-0 bottom-0 z-30 border-t border-slate-200 bg-white/95 pb-[env(safe-area-inset-bottom)] backdrop-blur dark:border-slate-800 dark:bg-slate-950/95 md:hidden" aria-label="Mobile Navigation">
-        <div className="grid grid-cols-5">
+        <div className="grid grid-cols-6">
           {ITEMS.map((it) => {
-            const active = route === it.route || (it.route === 'settings' && (route === 'glyphs' || route === 'onboarding'));
+            const active = route === it.route || (it.route === 'settings' && route === 'onboarding');
             const Icon = it.icon;
             return (
               <button

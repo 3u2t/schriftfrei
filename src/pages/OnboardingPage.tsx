@@ -37,7 +37,7 @@ export default function OnboardingPage() {
   const [sentencesDone, setSentencesDone] = useState<string[]>([]);
   const [strokes, setStrokes] = useState<InkStroke[]>([]);
   const [canvasKey, setCanvasKey] = useState(0);
-  const [pointerMode, setPointerMode] = useState<PointerMode>('stylus');
+  const [pointerMode, setPointerMode] = useState<PointerMode>('all');
   const [done, setDone] = useState<HandwritingProfile | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -47,7 +47,8 @@ export default function OnboardingPage() {
   const queue: QueueItem[] = useMemo(
     () => (step.id === 'sentences' ? [] : buildQueue(step.chars, variants)),
 
-    [stepIdx, started],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [stepIdx, started, variants, step.id],
   );
   const target = step.id === 'sentences' ? null : queue[Math.min(qi, queue.length - 1)];
 

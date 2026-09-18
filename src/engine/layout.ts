@@ -102,7 +102,9 @@ function glyphFor(
     return { v: list[idx], missing: false };
   }
 
-  return { v: demoGlyphFor(ch, 99), missing: true };
+  // Fehlende Zeichen im Demo-Stil ergänzen – Seed rotiert mit der Position,
+  // damit nicht jedes fehlende „é" pixel-identisch aussieht.
+  return { v: demoGlyphFor(ch, 99 + (gi % 7)), missing: true };
 }
 
 

@@ -5,10 +5,10 @@ import { ALL_TRAIN_CHARS } from '../training/charset';
 import { safeFilename } from './exporters';
 
 const UPM = 1000;
-const BODY = 700;
-const BASELINE_BOX_Y = 0.8;
-const LSB = 50;
-const HALF_STROKE = 20;
+// Volle EM-Abbildung (Baseline 0.8 → 800, Unterlänge 1.0 → -200), damit
+// OTF-Export → Font-Import exakt 1:1 roundtrippt (vorher BODY=700 → 0.7x-Stauchung).
+const BASELINE_NORM = 0.8;
+const SIDE_PAD = 120;
 
 function normalAt(pts: InkPoint[], i: number): { nx: number; ny: number } {
   const a = pts[Math.max(0, i - 1)];
@@ -19,12 +19,14 @@ function normalAt(pts: InkPoint[], i: number): { nx: number; ny: number } {
   return { nx: -dy / len, ny: dx / len };
 }
 
-const X = (x: number) => LSB + x * BODY;
-const Y = (y: number) => (BASELINE_BOX_Y - y) * BODY;
+const X = (x: number) => x * UPM;
+const Y = (y: number) => (BASELINE_NORM - y) * UPM;
 
 
 function strokeToContour(pts: InkPoint[]): { x: number; y: number }[] {
   if (pts.length === 0) return [];
+  // Strich-Halbbreite in Font-Units (UPM=1000 → ~2 % EM, passend zu DOT_R/Editor).
+  const HALF_STROKE = 20;
   if (pts.length === 1) {
 
     const cx = X(pts[0].x);
@@ -45,8 +47,8 @@ function strokeToContour(pts: InkPoint[]): { x: number; y: number }[] {
     const pressure = Math.min(1, Math.max(0.08, p.pressure || 0.5));
     const half = HALF_STROKE * (0.55 + pressure * 0.9);
 
-    left.push({ x: X(p.x) + nx * half * BODY, y: Y(p.y) + ny * half * BODY });
-    right.push({ x: X(p.x) - nx * half * BODY, y: Y(p.y) - ny * half * BODY });
+    left.push({ x: X(p.x) + nx * half, y: Y(p.y) + ny * half });
+    right.push({ x: X(p.x) - nx * half, y: Y(p.y) - ny * half });
   }
   return [...left, ...right.reverse()];
 }
@@ -84,8 +86,8 @@ function filledToPath(filled: string): opentype.Path {
     const v = Number(tokens[i++]);
     return Number.isFinite(v) ? v : 0;
   };
-  const FX = (x: number) => LSB + x * BODY;
-  const FY = (y: number) => (BASELINE_BOX_Y - y) * BODY;
+  const FX = (x: number) => x * UPM;
+  const FY = (y: number) => (BASELINE_NORM - y) * UPM;
   while (i < tokens.length) {
     const cmd = tokens[i++];
     if (cmd === 'M') {
@@ -149,7 +151,7 @@ export function buildTtf(profile: HandwritingProfile): ArrayBuffer {
       new opentype.Glyph({
         name: `u${code.toString(16).toUpperCase().padStart(4, '0')}`,
         unicode: code,
-        advanceWidth: Math.round(v.widthFactor * BODY + LSB * 2.4),
+        advanceWidth: Math.round(v.widthFactor * UPM + SIDE_PAD),
         path,
       }),
     );
@@ -184,11 +186,12 @@ export function buildTtf(profile: HandwritingProfile): ArrayBuffer {
 
 export function downloadTtf(profile: HandwritingProfile): void {
   const buffer = buildTtf(profile);
-  const blob = new Blob([buffer], { type: 'font/otf' });
+  // Inhalt ist TrueType-flavoured OpenType (glyf-Tabelle) → korrekterweise .ttf.
+  const blob = new Blob([buffer], { type: 'font/ttf' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = `${safeFilename(profile.name)}.otf`;
+  a.download = `${safeFilename(profile.name)}.ttf`;
   document.body.appendChild(a);
   a.click();
   a.remove();
